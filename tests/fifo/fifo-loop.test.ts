@@ -8,7 +8,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FifoRecorder } from '../../src/fifo/recorder.ts';
-import { FIFO_CSV_HEADER, decodeFifoPacket, rawStoreToCSV } from '../../src/fifo/protocol.ts';
+import { FIFO_CSV_HEADER, FIFO_CSV_HEADER_CORE, decodeFifoPacket, rawStoreToCSV } from '../../src/fifo/protocol.ts';
 import type { FifoDataLossInfo, FifoStoppedInfo, FifoRecorderOptions } from '../../src/fifo/recorder.ts';
 import { OrpheCoreInsole } from '../../src/device/orphe-core-insole.ts';
 import type { BeginContext, DeviceProfile, SensorSample } from '../../src/device/profile.ts';
@@ -504,6 +504,11 @@ test('FIFO: core プロファイルでも収集でき、既定で 0x01（リア�
   const fifo = new FifoRecorder(h.ble, FAST_TIMING);
   const stopped: FifoStoppedInfo[] = [];
   fifo.onStopped = (info) => stopped.push(info);
+  let sampleCount = 0;
+  fifo.onSamples = (_id, samples) => {
+    sampleCount += samples.length;
+    assert.ok(samples.every((sample) => sample.press === null)); // CORE に圧力はない
+  };
 
   assert.equal(await fifo.start(), true);
   assert.equal(h.fw.readMode, 0x02);
@@ -521,6 +526,12 @@ test('FIFO: core プロファイルでも収集でき、既定で 0x01（リア�
   assert.equal(h.fw.readMode, 0x01);
   assert.equal(h.fw.monitorRunning, false);
   assert.equal(h.errors.length, 0);
+
+  // CORE は 1 パケット = 8 サンプル（12B × 8）。CSV は圧力の列なしで 10 パケット × 8 行
+  assert.equal(sampleCount, 80);
+  const lines = fifo.toCSV().trimEnd().split('\n');
+  assert.equal(lines[0], FIFO_CSV_HEADER_CORE);
+  assert.equal(lines.length, 1 + 80);
 });
 
 test('FIFO: モニタ停止コマンドが落ちても再試行して FW の収録を止める', async () => {

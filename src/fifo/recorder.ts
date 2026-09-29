@@ -690,7 +690,7 @@ export class FifoRecorder {
       state.rawStore.set(sn, dv);
       state.noteStored(sn);
       stored += 1;
-      for (const s of decodeFifoPacket(dv).samples) decodedSamples.push(s);
+      for (const s of decodeFifoPacket(dv, this.ble.profile.kind).samples) decodedSamples.push(s);
     }
     if (decodedSamples.length && this.onSamples) {
       this.safe(() => this.onSamples!(this.deviceId, decodedSamples));
@@ -817,7 +817,7 @@ export class FifoRecorder {
       for (const [sn, dv] of received) {
         state.rawStore.set(sn, dv);
         state.noteStored(sn);
-        for (const s of decodeFifoPacket(dv).samples) decodedSamples.push(s);
+        for (const s of decodeFifoPacket(dv, this.ble.profile.kind).samples) decodedSamples.push(s);
       }
       if (decodedSamples.length && this.onSamples) {
         this.safe(() => this.onSamples!(this.deviceId, decodedSamples));
@@ -918,7 +918,7 @@ export class FifoRecorder {
   // ── CSV 出力 ───────────────────────────────────────────────────────
   /** 収集データを CSV 文字列にする（timestamp 昇順） */
   toCSV(): string {
-    return rawStoreToCSV(this.state.rawStore, this.ble.profile.pressure_calibrations ?? null);
+    return rawStoreToCSV(this.state.rawStore, this.ble.profile.pressure_calibrations ?? null, this.ble.profile.kind);
   }
 
   /** ブラウザで CSV をダウンロードする */

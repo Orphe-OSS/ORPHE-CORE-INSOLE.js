@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { DrainBudget, FifoLoopState } from '../../src/fifo/state.ts';
 import {
   FIFO_CSV_HEADER,
+  FIFO_CSV_HEADER_CORE,
   FIFO_FRAME_INTERVAL_MS,
   accToG,
   buildRequestsFromSerials,
@@ -15,6 +16,7 @@ import {
   expandRequestsToList,
   extractSerialIfSensorPacket,
   extractTimestampMs,
+  fifoLayoutFor,
   gyroToDps,
   packetToCsvRows,
   parseCurrentSerial,
@@ -178,7 +180,55 @@ test('decodeFifoPacket: 4 フレームを古い順（バイト列の末尾フレ
   });
 });
 
+/**
+ * CORE の 104 バイトの FIFO データパケット（12B × 8 サンプル、圧力なし）。フレーム i（バイト順で i 番目）は
+ * gyro = (1000(i+1), -100, 0) LSB、acc = (2048(i+1), -2048, 0) LSB。
+ */
+function makeCoreFifoPacket(serial: number, time: { h: number; m: number; s: number; ms: number }): DataView {
+  const bytes = [0x36, (serial >> 8) & 0xff, serial & 0xff, time.h, time.m, time.s, (time.ms >> 8) & 0xff, time.ms & 0xff];
+  for (let i = 0; i < 8; i++) {
+    for (const value of [1000 * (i + 1), -100, 0, 2048 * (i + 1), -2048, 0]) {
+      bytes.push((value >> 8) & 0xff, value & 0xff);
+    }
+  }
+  return view(bytes);
+}
+
+test('fifoLayoutFor: INSOLE は 24B × 4 サンプル（圧力あり）、CORE は 12B × 8 サンプル（圧力なし）', () => {
+  assert.deepEqual(fifoLayoutFor('insole'), { samples: 4, sampleSize: 24, hasPressure: true });
+  assert.deepEqual(fifoLayoutFor('core'), { samples: 8, sampleSize: 12, hasPressure: false });
+});
+
+test('decodeFifoPacket: CORE は 8 フレームを古い順に並べ、圧力は null', () => {
+  const packet = decodeFifoPacket(makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }), 'core');
+  assert.equal(packet.serial, 10);
+  assert.equal(packet.samples.length, 8);
+  packet.samples.forEach((sample, k) => {
+    const frame = 7 - k; // 先頭サンプルはバイト列の 8 番目のフレーム
+    assert.equal(sample.packet_number, k);
+    assert.equal(sample.t, 3723456 + k * FIFO_FRAME_INTERVAL_MS);
+    assertClose(sample.converted_gyro.x, 70 * (frame + 1));
+    assert.deepEqual(sample.converted_acc, { x: frame + 1, y: -1, z: 0 });
+    assert.equal(sample.press, null);
+  });
+});
+
 // ── CSV ──────────────────────────────────────────────────────────────
+
+test('packetToCsvRows: CORE は 1 パケット 8 行で圧力の列なし。timestamp は 5ms 刻み', () => {
+  const rows = packetToCsvRows(makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }), null, 'core');
+  assert.equal(rows.length, 8);
+  assert.equal(rows[0], '10, 01:02:03:456,   560.00,    -7.00,     0.00,   8.0000,  -1.0000,   0.0000');
+  assert.equal(rows[7], '10, 01:02:03:491,    70.00,    -7.00,     0.00,   1.0000,  -1.0000,   0.0000');
+});
+
+test('rawStoreToCSV: CORE は圧力の列がないヘッダで 8 行ずつ', () => {
+  const store = new Map<number, DataView>([[10, makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 })]]);
+  const lines = rawStoreToCSV(store, null, 'core').split('\n');
+  assert.equal(lines[0], FIFO_CSV_HEADER_CORE);
+  assert.equal(lines.length, 1 + 8 + 1);
+  assert.equal(lines[1]!.split(', ').length, 8);
+});
 
 test('packetToCsvRows: 1 パケット 4 行。timestamp は 5ms 刻み、圧力は固定式で N', () => {
   const rows = packetToCsvRows(makeFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }));
