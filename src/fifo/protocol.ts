@@ -18,10 +18,11 @@
  *
  * 注意: FIFO モードはジャイロ・加速度（INSOLE は 6ch 圧力も）のみでクォータニオンを含まない。
  *
- * 単位換算: gyro[dps] は LSM6DSOX のデータシート代表感度
- * 70 mdps/LSB（±2000 dps 固定、raw * 0.07）を使う。理想 Q15（/32768*2000 =
- * 61.035 mdps/LSB）とは意図的に係数 1.14688 倍だけ異なる。acc[G] の /32768*16 は
- * データシート感度 0.488 mg/LSB と一致するのでそのまま。
+ * 単位換算: 生値は device information に設定したレンジの値なので、そのレンジで換算する
+ * （{@link fifoRangeFromDeviceInformation}。読めなければ ±16G / ±2000dps）。
+ * gyro[dps] は LSM6DSOX のデータシート代表感度（±2000dps で 70 mdps/LSB = レンジ × 0.035 mdps）を使う。
+ * 理想 Q15（/32768*レンジ）とは意図的に係数 1.14688 倍だけ異なる。acc[G] の /32768*レンジ は
+ * データシート感度（±16G で 0.488 mg/LSB）と一致するのでそのまま。
  *
  * フレーム間隔: decodeFifoPacket() が返すサンプルの `t` は実測 IMU
  * ODR ≈208Hz（FRAME_INTERVAL_MS≈4.8077ms/frame）で計算する。packetToCsvRows() の
@@ -114,20 +115,46 @@ function binToInt(msb: number, lsb: number): number {
   return v;
 }
 
-/**
- * ジャイロの換算係数 [dps/LSB]。FIFO は acc ±16G / gyro ±2000dps 固定で、
- * LSM6DSOX データシートの代表感度 70 mdps/LSB を使う（冒頭コメント参照）。
- */
-export const FIFO_GYRO_DPS_PER_LSB = 0.07;
-
-/** 加速度の生値（MSB,LSB）→ G。±16G 固定レンジ。 */
-export function accToG(msb: number, lsb: number): number {
-  return (binToInt(msb, lsb) / 32768.0) * 16.0;
+/** 加速度・角速度のフルスケール（物理値）。 */
+export interface FifoRange {
+  /** 加速度レンジ [G]（2 / 4 / 8 / 16） */
+  acc: number;
+  /** 角速度レンジ [dps]（250 / 500 / 1000 / 2000） */
+  gyro: number;
 }
 
-/** ジャイロの生値（MSB,LSB）→ dps。{@link FIFO_GYRO_DPS_PER_LSB} で換算する。 */
-export function gyroToDps(msb: number, lsb: number): number {
-  return binToInt(msb, lsb) * FIFO_GYRO_DPS_PER_LSB;
+/** device information を読めないときのレンジ。 */
+export const FIFO_DEFAULT_RANGE: Readonly<FifoRange> = Object.freeze({ acc: 16, gyro: 2000 });
+const ACC_RANGES = [2, 4, 8, 16] as const;
+const GYRO_RANGES = [250, 500, 1000, 2000] as const;
+
+/**
+ * device information のレンジ設定（index 0..3）→ 物理値。未取得・範囲外は {@link FIFO_DEFAULT_RANGE}。
+ */
+export function fifoRangeFromDeviceInformation(
+  info: { range?: { acc?: number; gyro?: number } } | null | undefined
+): FifoRange {
+  const pick = (ranges: readonly number[], index: number | undefined, fallback: number): number =>
+    typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < ranges.length ? ranges[index]! : fallback;
+  return {
+    acc: pick(ACC_RANGES, info?.range?.acc, FIFO_DEFAULT_RANGE.acc),
+    gyro: pick(GYRO_RANGES, info?.range?.gyro, FIFO_DEFAULT_RANGE.gyro),
+  };
+}
+
+/** ±2000dps でのジャイロの換算係数 [dps/LSB]（LSM6DSOX データシートの代表感度 70 mdps/LSB）。 */
+export const FIFO_GYRO_DPS_PER_LSB = 0.07;
+/** レンジごとのジャイロの代表感度 [dps/LSB]（LSM6DSOX データシート）。感度はレンジに比例する。 */
+const GYRO_DPS_PER_LSB: Readonly<Record<number, number>> = Object.freeze({ 250: 0.00875, 500: 0.0175, 1000: 0.035, 2000: 0.07 });
+
+/** 加速度の生値（MSB,LSB）→ G。`range` は加速度レンジ [G]（既定 ±16G）。 */
+export function accToG(msb: number, lsb: number, range: number = FIFO_DEFAULT_RANGE.acc): number {
+  return (binToInt(msb, lsb) / 32768.0) * range;
+}
+
+/** ジャイロの生値（MSB,LSB）→ dps。`range` は角速度レンジ [dps]（既定 ±2000dps）。 */
+export function gyroToDps(msb: number, lsb: number, range: number = FIFO_DEFAULT_RANGE.gyro): number {
+  return binToInt(msb, lsb) * (GYRO_DPS_PER_LSB[range] ?? (range * FIFO_GYRO_DPS_PER_LSB) / 2000);
 }
 
 /** 圧力生値(ADC uint16) → N（固定校正多項式。n は 1..6） */
@@ -280,11 +307,13 @@ interface FifoFrame {
 }
 
 // 1フレーム（gyro3+acc3、INSOLE は +press6）を物理値へ変換。decode/CSV で共用しバイト配置を一元化。
-function readFrame(dv: DataView, i: number, layout: FifoLayout): FifoFrame {
+function readFrame(dv: DataView, i: number, layout: FifoLayout, range: FifoRange): FifoFrame {
   const o = i * layout.sampleSize + 8;
+  const gyro = (k: number): number => gyroToDps(dv.getUint8(o + k), dv.getUint8(o + k + 1), range.gyro);
+  const acc = (k: number): number => accToG(dv.getUint8(o + k), dv.getUint8(o + k + 1), range.acc);
   return {
-    gyro: [gyroToDps(dv.getUint8(o), dv.getUint8(o + 1)), gyroToDps(dv.getUint8(o + 2), dv.getUint8(o + 3)), gyroToDps(dv.getUint8(o + 4), dv.getUint8(o + 5))],
-    acc: [accToG(dv.getUint8(o + 6), dv.getUint8(o + 7)), accToG(dv.getUint8(o + 8), dv.getUint8(o + 9)), accToG(dv.getUint8(o + 10), dv.getUint8(o + 11))],
+    gyro: [gyro(0), gyro(2), gyro(4)],
+    acc: [acc(6), acc(8), acc(10)],
     press: layout.hasPressure
       ? [dv.getUint16(o + 12), dv.getUint16(o + 14), dv.getUint16(o + 16), dv.getUint16(o + 18), dv.getUint16(o + 20), dv.getUint16(o + 22)]
       : null,
@@ -331,17 +360,17 @@ export interface FifoPacket {
 
 /**
  * 1データパケット(0x36) → サンプル配列（ライブ可視化用）。`kind` はプロファイル種別で、
- * INSOLE は 4、CORE は 8 フレーム。フレームは古い順（バイト列の末尾のフレームが基準、
- * 以降 +FIFO_FRAME_INTERVAL_MS）。出力もその順。
+ * INSOLE は 4、CORE は 8 フレーム。`range` は device information のレンジ（{@link fifoRangeFromDeviceInformation}）。
+ * フレームは古い順（バイト列の末尾のフレームが基準、以降 +FIFO_FRAME_INTERVAL_MS）。出力もその順。
  */
-export function decodeFifoPacket(dv: DataView, kind = 'insole'): FifoPacket {
+export function decodeFifoPacket(dv: DataView, kind = 'insole', range: FifoRange = FIFO_DEFAULT_RANGE): FifoPacket {
   const layout = fifoLayoutFor(kind);
   const serial = dv.getUint16(1);
   const baseMs = extractTimestampMs(dv);
   const samples: FifoSample[] = [];
   for (let i = layout.samples - 1; i >= 0; i--) {
     const packet_number = layout.samples - 1 - i;
-    const f = readFrame(dv, i, layout);
+    const f = readFrame(dv, i, layout, range);
     samples.push({
       serial_number: serial,
       packet_number,
@@ -369,7 +398,8 @@ function f4(v: number): string {
 export function packetToCsvRows(
   dv: DataView,
   calibrations: readonly (PressureCalibration | null)[] | null = null,
-  kind = 'insole'
+  kind = 'insole',
+  range: FifoRange = FIFO_DEFAULT_RANGE
 ): string[] {
   const layout = fifoLayoutFor(kind);
   // 個体別係数があれば ch ごとにそれで N に換算し、なければ固定多項式
@@ -383,7 +413,7 @@ export function packetToCsvRows(
   const rows: string[] = [];
   for (let i = layout.samples - 1; i >= 0; i--) {
     const offsetMs = (layout.samples - 1 - i) * FIFO_LEGACY_CSV_FRAME_INTERVAL_MS;
-    const f = readFrame(dv, i, layout);
+    const f = readFrame(dv, i, layout, range);
     const cells = [
       String(serial), timestampToStr(h, m, s, ms, offsetMs),
       f2(f.gyro[0]), f2(f.gyro[1]), f2(f.gyro[2]),
@@ -398,18 +428,20 @@ export function packetToCsvRows(
 /**
  * 収集した raw ストア（Map<serial, DataView>）を timestamp 順に並べて CSV 文字列化。
  * `kind` はプロファイル種別で、CORE は圧力の列がない {@link FIFO_CSV_HEADER_CORE} になる。
+ * `range` は device information のレンジ（{@link fifoRangeFromDeviceInformation}）。
  */
 export function rawStoreToCSV(
   rawStore: Map<number, DataView>,
   calibrations: readonly (PressureCalibration | null)[] | null = null,
-  kind = 'insole'
+  kind = 'insole',
+  range: FifoRange = FIFO_DEFAULT_RANGE
 ): string {
   const entries = Array.from(rawStore.values());
   entries.sort((a, b) => extractTimestampMs(a) - extractTimestampMs(b));
   const lines = [fifoLayoutFor(kind).hasPressure ? FIFO_CSV_HEADER : FIFO_CSV_HEADER_CORE];
   for (const dv of entries) {
     if (dv.byteLength < 1 || dv.getUint8(0) !== RESP_DATA) continue;
-    for (const row of packetToCsvRows(dv, calibrations, kind)) lines.push(row);
+    for (const row of packetToCsvRows(dv, calibrations, kind, range)) lines.push(row);
   }
   return lines.join('\n') + '\n';
 }

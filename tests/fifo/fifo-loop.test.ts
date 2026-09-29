@@ -58,6 +58,8 @@ class FakeInsoleProfile implements DeviceProfile {
 class FakeCoreProfile implements DeviceProfile {
   readonly kind = 'core';
   readonly defaultNotificationType = 'SENSOR_VALUES';
+  // ±8G / ±1000dps。FIFO の生値はこのレンジで換算する
+  device_information = { range: { acc: 2, gyro: 2 } };
 
   storageKey(id: number): string {
     return `orphe_fifo_core_test_device_${id}`;
@@ -529,7 +531,11 @@ test('FIFO: core プロファイルでも収集でき、既定で 0x01（リア�
 
   // CORE は 1 パケット = 8 サンプル（12B × 8）。CSV は圧力の列なしで 10 パケット × 8 行
   assert.equal(sampleCount, 80);
-  const lines = fifo.toCSV().trimEnd().split('\n');
+  const csv = fifo.toCSV();
+  // device information のレンジ（±8G / ±1000dps）で換算している
+  assert.equal(csv, rawStoreToCSV(store, null, 'core', { acc: 8, gyro: 1000 }));
+  assert.notEqual(csv, rawStoreToCSV(store, null, 'core'));
+  const lines = csv.trimEnd().split('\n');
   assert.equal(lines[0], FIFO_CSV_HEADER_CORE);
   assert.equal(lines.length, 1 + 80);
 });

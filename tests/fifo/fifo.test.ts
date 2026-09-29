@@ -16,7 +16,9 @@ import {
   expandRequestsToList,
   extractSerialIfSensorPacket,
   extractTimestampMs,
+  FIFO_DEFAULT_RANGE,
   fifoLayoutFor,
+  fifoRangeFromDeviceInformation,
   gyroToDps,
   packetToCsvRows,
   parseCurrentSerial,
@@ -211,6 +213,31 @@ test('decodeFifoPacket: CORE は 8 フレームを古い順に並べ、圧力は
     assert.deepEqual(sample.converted_acc, { x: frame + 1, y: -1, z: 0 });
     assert.equal(sample.press, null);
   });
+});
+
+test('fifoRangeFromDeviceInformation: レンジの index を物理値にする。未取得・範囲外は ±16G / ±2000dps', () => {
+  assert.deepEqual(fifoRangeFromDeviceInformation({ range: { acc: 2, gyro: 1 } }), { acc: 8, gyro: 500 });
+  assert.deepEqual(fifoRangeFromDeviceInformation({ range: { acc: 0, gyro: 0 } }), { acc: 2, gyro: 250 });
+  assert.deepEqual(fifoRangeFromDeviceInformation(null), FIFO_DEFAULT_RANGE);
+  assert.deepEqual(fifoRangeFromDeviceInformation({ range: { acc: 7, gyro: -1 } }), { acc: 16, gyro: 2000 });
+});
+
+test('accToG / gyroToDps: レンジを渡すとそのレンジの感度で換算する（gyro は 0.035 mdps/LSB × レンジ）', () => {
+  assert.equal(accToG(0x40, 0x00, 8), 4); // 16384 LSB
+  assert.equal(accToG(0x40, 0x00), 8); // 既定は ±16G
+  assertClose(gyroToDps(0x03, 0xe8, 250), 8.75); // 1000 LSB × 8.75 mdps/LSB
+  assertClose(gyroToDps(0x03, 0xe8), 70);
+});
+
+test('decodeFifoPacket / packetToCsvRows: device information のレンジで換算する', () => {
+  const dv = makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 });
+  const range = { acc: 8, gyro: 1000 };
+  const newest = decodeFifoPacket(dv, 'core', range).samples[0]!; // gyro 8000 LSB, acc 16384 LSB
+  assertClose(newest.converted_gyro.x, 280);
+  assert.equal(newest.converted_acc.x, 4);
+  assert.equal(packetToCsvRows(dv, null, 'core', range)[0], '10, 01:02:03:456,   280.00,    -3.50,     0.00,   4.0000,  -0.5000,   0.0000');
+  const store = new Map<number, DataView>([[10, dv]]);
+  assert.equal(rawStoreToCSV(store, null, 'core', range).split('\n')[1], packetToCsvRows(dv, null, 'core', range)[0]);
 });
 
 // ── CSV ──────────────────────────────────────────────────────────────

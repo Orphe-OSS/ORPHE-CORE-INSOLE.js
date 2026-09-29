@@ -13,6 +13,7 @@ import {
   CORE_REALTIME_READ_MODE,
   DATA_PACKET_BYTE_LENGTH,
   DEFAULT_DRAIN_TIMEOUT_MS,
+  FIFO_DEFAULT_RANGE,
   FIFO_READ_MODE,
   FIFO_RE_REQUEST_DATA_NUM,
   MAX_DATA_NUMBER_REQUESTED_AT_ONCE,
@@ -28,6 +29,7 @@ import {
   calcExpectedSerials,
   createGetSensorDataRequest,
   decodeFifoPacket,
+  fifoRangeFromDeviceInformation,
   expandRequestsToList,
   extractSerialIfSensorPacket,
   parseCurrentSerial,
@@ -35,7 +37,7 @@ import {
   rawStoreToCSV,
   serialDistance,
 } from './protocol.ts';
-import type { FifoCurrentSerial, FifoRequestRange, FifoSample } from './protocol.ts';
+import type { FifoCurrentSerial, FifoRange, FifoRequestRange, FifoSample } from './protocol.ts';
 import { DrainBudget, FifoLoopState, NotifyQueue } from './state.ts';
 import type { FifoLossEvent } from './state.ts';
 
@@ -66,6 +68,8 @@ export interface FifoHost {
     streaming_mode?: number | null;
     /** insole の個体別圧力校正係数。あれば CSV の N 換算に使う */
     pressure_calibrations?: readonly (PressureCalibration | null)[] | null;
+    /** 接続時に読んだ device information。レンジ（index）で FIFO の生値を換算する */
+    device_information?: { range?: { acc?: number; gyro?: number } } | null;
   };
   /** 接続中なら true。切断されたらループを止める */
   isConnected(): boolean;
@@ -285,6 +289,8 @@ export class FifoRecorder {
   private autoStopped = false;
   private lastCurrentSerial: number | null = null;
   private captureId = 0;
+  /** start() 時点の device information のレンジ。デコードと CSV の換算に使う */
+  private range: FifoRange = FIFO_DEFAULT_RANGE;
 
   constructor(ble: FifoHost, options: FifoRecorderOptions = {}) {
     this.ble = ble;
@@ -470,6 +476,7 @@ export class FifoRecorder {
     // 収集直前の状態をクリア
     this.state = new FifoLoopState();
     this.captureId += 1;
+    this.range = fifoRangeFromDeviceInformation(this.ble.profile.device_information);
     this.restoreMode =
       this.options.restoreMode !== undefined
         ? this.options.restoreMode
@@ -690,7 +697,7 @@ export class FifoRecorder {
       state.rawStore.set(sn, dv);
       state.noteStored(sn);
       stored += 1;
-      for (const s of decodeFifoPacket(dv, this.ble.profile.kind).samples) decodedSamples.push(s);
+      for (const s of decodeFifoPacket(dv, this.ble.profile.kind, this.range).samples) decodedSamples.push(s);
     }
     if (decodedSamples.length && this.onSamples) {
       this.safe(() => this.onSamples!(this.deviceId, decodedSamples));
@@ -817,7 +824,7 @@ export class FifoRecorder {
       for (const [sn, dv] of received) {
         state.rawStore.set(sn, dv);
         state.noteStored(sn);
-        for (const s of decodeFifoPacket(dv, this.ble.profile.kind).samples) decodedSamples.push(s);
+        for (const s of decodeFifoPacket(dv, this.ble.profile.kind, this.range).samples) decodedSamples.push(s);
       }
       if (decodedSamples.length && this.onSamples) {
         this.safe(() => this.onSamples!(this.deviceId, decodedSamples));
@@ -918,7 +925,7 @@ export class FifoRecorder {
   // ── CSV 出力 ───────────────────────────────────────────────────────
   /** 収集データを CSV 文字列にする（timestamp 昇順） */
   toCSV(): string {
-    return rawStoreToCSV(this.state.rawStore, this.ble.profile.pressure_calibrations ?? null, this.ble.profile.kind);
+    return rawStoreToCSV(this.state.rawStore, this.ble.profile.pressure_calibrations ?? null, this.ble.profile.kind, this.range);
   }
 
   /** ブラウザで CSV をダウンロードする */
