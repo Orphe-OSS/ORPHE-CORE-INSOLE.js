@@ -125,7 +125,6 @@ export const FIFO_DEFAULT_RANGE: Readonly<FifoRange> = Object.freeze({ acc: DEFA
 
 /**
  * device information のレンジ設定（index 0..3）→ 物理値。未取得・範囲外は {@link FIFO_DEFAULT_RANGE}。
- * リアルタイム計測（CORE / INSOLE プロファイル）と同じ対応表を使う。
  */
 export function fifoRangeFromDeviceInformation(
   info: { range?: { acc?: number; gyro?: number } } | null | undefined

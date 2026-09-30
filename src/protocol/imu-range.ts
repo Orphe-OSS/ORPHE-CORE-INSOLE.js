@@ -1,6 +1,5 @@
 /**
  * 加速度・角速度のレンジ設定（device information の index 0..3）と物理値の対応。
- * CORE / INSOLE のリアルタイム計測と FIFO で共有する。
  */
 
 /** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G] */

@@ -40,9 +40,9 @@ import {
   imuRangeFromSettings,
 } from '../protocol/imu-range.ts';
 
-/** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G]（FIFO と共通の表） */
+/** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G] */
 export const INSOLE_ACC_RANGES = ACC_RANGES;
-/** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps]（FIFO と共通の表） */
+/** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps] */
 export const INSOLE_GYRO_RANGES = GYRO_RANGES;
 /** フルスケール 1 dps あたりの感度 [dps/LSB]（例: ±2000dps → 0.07） */
 export const INSOLE_GYRO_DPS_PER_LSB_PER_RANGE = GYRO_DPS_PER_LSB_PER_RANGE;

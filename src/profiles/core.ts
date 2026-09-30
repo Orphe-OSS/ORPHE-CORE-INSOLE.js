@@ -18,9 +18,9 @@ import { normalizeQuaternionCoreStyle, quatToEuler } from '../protocol/geometry.
 import type { EulerAngles } from '../protocol/geometry.ts';
 import { ACC_RANGES, GYRO_RANGES, gyroRawToDps, imuRangeFromSettings } from '../protocol/imu-range.ts';
 
-/** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G]（FIFO と共通の表） */
+/** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G] */
 export const CORE_ACC_RANGES = ACC_RANGES;
-/** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps]（FIFO と共通の表） */
+/** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps] */
 export const CORE_GYRO_RANGES = GYRO_RANGES;
 
 // ─── ペイロード型（got* コールバック引数の形状） ─────────────────
