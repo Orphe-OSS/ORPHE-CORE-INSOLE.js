@@ -16,21 +16,12 @@ import { syncDeviceTime } from '../device/time-sync.ts';
 import { getFloat16 } from '../protocol/float16.ts';
 import { normalizeQuaternionCoreStyle, quatToEuler } from '../protocol/geometry.ts';
 import type { EulerAngles } from '../protocol/geometry.ts';
+import { ACC_RANGES, GYRO_RANGES, gyroRawToDps, imuRangeFromSettings } from '../protocol/imu-range.ts';
 
-/** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G] */
-export const CORE_ACC_RANGES = Object.freeze([2, 4, 8, 16] as const);
-/** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps] */
-export const CORE_GYRO_RANGES = Object.freeze([250, 500, 1000, 2000] as const);
-
-/**
- * ジャイロ感度: フルスケール 1 dps あたりの deg/s/LSB（LSM6DSOX 代表値。±2000 dps で 70 mdps/LSB）。
- * header 40 の int8 は int16 の上位バイトなので ×256 してから掛ける。
- */
-const CORE_GYRO_DPS_PER_LSB_PER_RANGE = 0.000035;
-
-function gyroRawToDps(raw: number, gyroRange: number): number {
-  return raw * gyroRange * CORE_GYRO_DPS_PER_LSB_PER_RANGE;
-}
+/** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G]（FIFO と共通の表） */
+export const CORE_ACC_RANGES = ACC_RANGES;
+/** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps]（FIFO と共通の表） */
+export const CORE_GYRO_RANGES = GYRO_RANGES;
 
 // ─── ペイロード型（got* コールバック引数の形状） ─────────────────
 
@@ -420,12 +411,6 @@ export function encodeCoreDeviceInformation(info: Omit<CoreDeviceInformation, 'r
   ]);
 }
 
-// index 0..3 は表の値、それ以外の数値はフルスケール値として素通し、数値でなければ fallback
-function rangeFromSetting(ranges: readonly number[], setting: unknown, fallback: number): number {
-  if (typeof setting !== 'number' || !Number.isFinite(setting)) return fallback;
-  return Number.isInteger(setting) && setting >= 0 && setting < ranges.length ? ranges[setting]! : setting;
-}
-
 // 物理フルスケール値 → index。該当なしは null（デバイスの現在値を維持）
 function indexFromRange(ranges: readonly number[], physical: unknown): number | null {
   const index = ranges.indexOf(Number(physical));
@@ -604,16 +589,13 @@ export class CoreProfile implements DeviceProfile<CoreSensorFields> {
   }
 
   /**
-   * 取得済みレンジ設定 index → パーサーのフルスケール値（未取得は 16G/2000dps）。
+   * 取得済みレンジ設定 index → パーサーのフルスケール値（未取得・範囲外は 16G/2000dps）。
    *
    * @internal
    */
   sensorParseOptions(): CoreParseOptions {
-    const range = this.device_information?.range;
-    return {
-      accRange: rangeFromSetting(CORE_ACC_RANGES, range?.acc, 16),
-      gyroRange: rangeFromSetting(CORE_GYRO_RANGES, range?.gyro, 2000),
-    };
+    const { acc, gyro } = imuRangeFromSettings(this.device_information?.range);
+    return { accRange: acc, gyroRange: gyro };
   }
 
   private rememberQuat(quat: Quat | undefined): void {

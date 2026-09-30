@@ -32,6 +32,8 @@
  */
 import { pressureToNewton } from '../protocol/pressure-calibration.ts';
 import type { PressureCalibration } from '../protocol/pressure-calibration.ts';
+import { DEFAULT_ACC_RANGE, DEFAULT_GYRO_RANGE, GYRO_DPS_PER_LSB_PER_RANGE, gyroRawToDps, imuRangeFromSettings } from '../protocol/imu-range.ts';
+import type { ImuRange } from '../protocol/imu-range.ts';
 
 // ── 定数 ─────────────────────────────────────────────────────────────
 export const UINT16_MAX = 65536;
@@ -116,36 +118,23 @@ function binToInt(msb: number, lsb: number): number {
 }
 
 /** 加速度・角速度のフルスケール（物理値）。 */
-export interface FifoRange {
-  /** 加速度レンジ [G]（2 / 4 / 8 / 16） */
-  acc: number;
-  /** 角速度レンジ [dps]（250 / 500 / 1000 / 2000） */
-  gyro: number;
-}
+export type FifoRange = ImuRange;
 
 /** device information を読めないときのレンジ。 */
-export const FIFO_DEFAULT_RANGE: Readonly<FifoRange> = Object.freeze({ acc: 16, gyro: 2000 });
-const ACC_RANGES = [2, 4, 8, 16] as const;
-const GYRO_RANGES = [250, 500, 1000, 2000] as const;
+export const FIFO_DEFAULT_RANGE: Readonly<FifoRange> = Object.freeze({ acc: DEFAULT_ACC_RANGE, gyro: DEFAULT_GYRO_RANGE });
 
 /**
  * device information のレンジ設定（index 0..3）→ 物理値。未取得・範囲外は {@link FIFO_DEFAULT_RANGE}。
+ * リアルタイム計測（CORE / INSOLE プロファイル）と同じ対応表を使う。
  */
 export function fifoRangeFromDeviceInformation(
   info: { range?: { acc?: number; gyro?: number } } | null | undefined
 ): FifoRange {
-  const pick = (ranges: readonly number[], index: number | undefined, fallback: number): number =>
-    typeof index === 'number' && Number.isInteger(index) && index >= 0 && index < ranges.length ? ranges[index]! : fallback;
-  return {
-    acc: pick(ACC_RANGES, info?.range?.acc, FIFO_DEFAULT_RANGE.acc),
-    gyro: pick(GYRO_RANGES, info?.range?.gyro, FIFO_DEFAULT_RANGE.gyro),
-  };
+  return imuRangeFromSettings(info?.range);
 }
 
 /** ±2000dps でのジャイロの換算係数 [dps/LSB]（LSM6DSOX データシートの代表感度 70 mdps/LSB）。 */
-export const FIFO_GYRO_DPS_PER_LSB = 0.07;
-/** レンジごとのジャイロの代表感度 [dps/LSB]（LSM6DSOX データシート）。感度はレンジに比例する。 */
-const GYRO_DPS_PER_LSB: Readonly<Record<number, number>> = Object.freeze({ 250: 0.00875, 500: 0.0175, 1000: 0.035, 2000: 0.07 });
+export const FIFO_GYRO_DPS_PER_LSB = DEFAULT_GYRO_RANGE * GYRO_DPS_PER_LSB_PER_RANGE;
 
 /** 加速度の生値（MSB,LSB）→ G。`range` は加速度レンジ [G]（既定 ±16G）。 */
 export function accToG(msb: number, lsb: number, range: number = FIFO_DEFAULT_RANGE.acc): number {
@@ -154,7 +143,7 @@ export function accToG(msb: number, lsb: number, range: number = FIFO_DEFAULT_RA
 
 /** ジャイロの生値（MSB,LSB）→ dps。`range` は角速度レンジ [dps]（既定 ±2000dps）。 */
 export function gyroToDps(msb: number, lsb: number, range: number = FIFO_DEFAULT_RANGE.gyro): number {
-  return binToInt(msb, lsb) * (GYRO_DPS_PER_LSB[range] ?? (range * FIFO_GYRO_DPS_PER_LSB) / 2000);
+  return gyroRawToDps(binToInt(msb, lsb), range);
 }
 
 /** 圧力生値(ADC uint16) → N（固定校正多項式。n は 1..6） */
