@@ -6,6 +6,7 @@ import assert from 'node:assert/strict';
 import { DrainBudget, FifoLoopState } from '../../src/fifo/state.ts';
 import {
   FIFO_CSV_HEADER,
+  FIFO_CSV_HEADER_CORE,
   FIFO_FRAME_INTERVAL_MS,
   accToG,
   buildRequestsFromSerials,
@@ -15,6 +16,9 @@ import {
   expandRequestsToList,
   extractSerialIfSensorPacket,
   extractTimestampMs,
+  FIFO_DEFAULT_RANGE,
+  fifoLayoutFor,
+  fifoRangeFromDeviceInformation,
   gyroToDps,
   packetToCsvRows,
   parseCurrentSerial,
@@ -178,7 +182,80 @@ test('decodeFifoPacket: 4 フレームを古い順（バイト列の末尾フレ
   });
 });
 
+/**
+ * CORE の 104 バイトの FIFO データパケット（12B × 8 サンプル、圧力なし）。フレーム i（バイト順で i 番目）は
+ * gyro = (1000(i+1), -100, 0) LSB、acc = (2048(i+1), -2048, 0) LSB。
+ */
+function makeCoreFifoPacket(serial: number, time: { h: number; m: number; s: number; ms: number }): DataView {
+  const bytes = [0x36, (serial >> 8) & 0xff, serial & 0xff, time.h, time.m, time.s, (time.ms >> 8) & 0xff, time.ms & 0xff];
+  for (let i = 0; i < 8; i++) {
+    for (const value of [1000 * (i + 1), -100, 0, 2048 * (i + 1), -2048, 0]) {
+      bytes.push((value >> 8) & 0xff, value & 0xff);
+    }
+  }
+  return view(bytes);
+}
+
+test('fifoLayoutFor: INSOLE は 24B × 4 サンプル（圧力あり）、CORE は 12B × 8 サンプル（圧力なし）', () => {
+  assert.deepEqual(fifoLayoutFor('insole'), { samples: 4, sampleSize: 24, hasPressure: true });
+  assert.deepEqual(fifoLayoutFor('core'), { samples: 8, sampleSize: 12, hasPressure: false });
+});
+
+test('decodeFifoPacket: CORE は 8 フレームを古い順に並べ、圧力は null', () => {
+  const packet = decodeFifoPacket(makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }), 'core');
+  assert.equal(packet.serial, 10);
+  assert.equal(packet.samples.length, 8);
+  packet.samples.forEach((sample, k) => {
+    const frame = 7 - k; // 先頭サンプルはバイト列の 8 番目のフレーム
+    assert.equal(sample.packet_number, k);
+    assert.equal(sample.t, 3723456 + k * FIFO_FRAME_INTERVAL_MS);
+    assertClose(sample.converted_gyro.x, 70 * (frame + 1));
+    assert.deepEqual(sample.converted_acc, { x: frame + 1, y: -1, z: 0 });
+    assert.equal(sample.press, null);
+  });
+});
+
+test('fifoRangeFromDeviceInformation: レンジの index を物理値にする。未取得・範囲外は ±16G / ±2000dps', () => {
+  assert.deepEqual(fifoRangeFromDeviceInformation({ range: { acc: 2, gyro: 1 } }), { acc: 8, gyro: 500 });
+  assert.deepEqual(fifoRangeFromDeviceInformation({ range: { acc: 0, gyro: 0 } }), { acc: 2, gyro: 250 });
+  assert.deepEqual(fifoRangeFromDeviceInformation(null), FIFO_DEFAULT_RANGE);
+  assert.deepEqual(fifoRangeFromDeviceInformation({ range: { acc: 7, gyro: -1 } }), { acc: 16, gyro: 2000 });
+});
+
+test('accToG / gyroToDps: レンジを渡すとそのレンジの感度で換算する（gyro は 0.035 mdps/LSB × レンジ）', () => {
+  assert.equal(accToG(0x40, 0x00, 8), 4); // 16384 LSB
+  assert.equal(accToG(0x40, 0x00), 8); // 既定は ±16G
+  assertClose(gyroToDps(0x03, 0xe8, 250), 8.75); // 1000 LSB × 8.75 mdps/LSB
+  assertClose(gyroToDps(0x03, 0xe8), 70);
+});
+
+test('decodeFifoPacket / packetToCsvRows: device information のレンジで換算する', () => {
+  const dv = makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 });
+  const range = { acc: 8, gyro: 1000 };
+  const newest = decodeFifoPacket(dv, 'core', range).samples[0]!; // gyro 8000 LSB, acc 16384 LSB
+  assertClose(newest.converted_gyro.x, 280);
+  assert.equal(newest.converted_acc.x, 4);
+  assert.equal(packetToCsvRows(dv, null, 'core', range)[0], '10, 01:02:03:456,   280.00,    -3.50,     0.00,   4.0000,  -0.5000,   0.0000');
+  const store = new Map<number, DataView>([[10, dv]]);
+  assert.equal(rawStoreToCSV(store, null, 'core', range).split('\n')[1], packetToCsvRows(dv, null, 'core', range)[0]);
+});
+
 // ── CSV ──────────────────────────────────────────────────────────────
+
+test('packetToCsvRows: CORE は 1 パケット 8 行で圧力の列なし。timestamp は 5ms 刻み', () => {
+  const rows = packetToCsvRows(makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }), null, 'core');
+  assert.equal(rows.length, 8);
+  assert.equal(rows[0], '10, 01:02:03:456,   560.00,    -7.00,     0.00,   8.0000,  -1.0000,   0.0000');
+  assert.equal(rows[7], '10, 01:02:03:491,    70.00,    -7.00,     0.00,   1.0000,  -1.0000,   0.0000');
+});
+
+test('rawStoreToCSV: CORE は圧力の列がないヘッダで 8 行ずつ', () => {
+  const store = new Map<number, DataView>([[10, makeCoreFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 })]]);
+  const lines = rawStoreToCSV(store, null, 'core').split('\n');
+  assert.equal(lines[0], FIFO_CSV_HEADER_CORE);
+  assert.equal(lines.length, 1 + 8 + 1);
+  assert.equal(lines[1]!.split(', ').length, 8);
+});
 
 test('packetToCsvRows: 1 パケット 4 行。timestamp は 5ms 刻み、圧力は固定式で N', () => {
   const rows = packetToCsvRows(makeFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }));

@@ -31,14 +31,21 @@ import type { OperationOptions } from '../ble/types.ts';
 import { syncDeviceTime } from '../device/time-sync.ts';
 import { normalizeQuaternionInsoleStyle, quatToEuler } from '../protocol/geometry.ts';
 import type { EulerAngles } from '../protocol/geometry.ts';
+import {
+  ACC_RANGES,
+  DEFAULT_ACC_RANGE,
+  DEFAULT_GYRO_RANGE,
+  GYRO_DPS_PER_LSB_PER_RANGE,
+  GYRO_RANGES,
+  imuRangeFromSettings,
+} from '../protocol/imu-range.ts';
 
-// DEVICE_INFORMATION のレンジ設定 index（0..3）→ 物理フルスケール値
 /** 加速度レンジ設定 index（0..3）→ 物理フルスケール値 [G] */
-export const INSOLE_ACC_RANGES = Object.freeze([2, 4, 8, 16] as const);
+export const INSOLE_ACC_RANGES = ACC_RANGES;
 /** ジャイロレンジ設定 index（0..3）→ 物理フルスケール値 [dps] */
-export const INSOLE_GYRO_RANGES = Object.freeze([250, 500, 1000, 2000] as const);
+export const INSOLE_GYRO_RANGES = GYRO_RANGES;
 /** フルスケール 1 dps あたりの感度 [dps/LSB]（例: ±2000dps → 0.07） */
-export const INSOLE_GYRO_DPS_PER_LSB_PER_RANGE = 0.000035;
+export const INSOLE_GYRO_DPS_PER_LSB_PER_RANGE = GYRO_DPS_PER_LSB_PER_RANGE;
 
 /**
  * ORPHE INSOLE 用の chooser フィルタ。
@@ -190,8 +197,8 @@ export function parseInsoleSensorValues(data: DataView, options: InsoleParseOpti
 
   const header = data.getUint8(0);
   const serial_number = data.getUint16(1);
-  const gyroRange = Number.isFinite(Number(options.gyroRange)) ? Number(options.gyroRange) : 2000;
-  const accRange = Number.isFinite(Number(options.accRange)) ? Number(options.accRange) : 16;
+  const gyroRange = Number.isFinite(Number(options.gyroRange)) ? Number(options.gyroRange) : DEFAULT_GYRO_RANGE;
+  const accRange = Number.isFinite(Number(options.accRange)) ? Number(options.accRange) : DEFAULT_ACC_RANGE;
   // deg/s per LSB（例: ±2000 dps → 0.07）。正規化値ではなく raw int16 に掛ける。
   const gyroDpsPerLsb = gyroRange * INSOLE_GYRO_DPS_PER_LSB_PER_RANGE;
   const now = options.now ? options.now() : new Date();
@@ -350,13 +357,6 @@ export function decodeInsoleDeviceInformation(data: DataView): InsoleDeviceInfor
     },
     raw: data,
   };
-}
-
-// setting は getUint8 由来の整数のみ受け付ける（範囲外・非整数は fallback）
-function rangeFromSetting(ranges: readonly number[], setting: unknown, fallback: number): number {
-  return typeof setting === 'number' && Number.isInteger(setting) && setting >= 0 && setting < ranges.length
-    ? ranges[setting]!
-    : fallback;
 }
 
 /** 係数取得の間に使う配信モード（圧力を含むモードでないと FW が応答しない） */
@@ -659,11 +659,8 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields> {
    * @internal
    */
   sensorParseOptions(): InsoleParseOptions {
-    const range = this.device_information?.range;
-    return {
-      accRange: rangeFromSetting(INSOLE_ACC_RANGES, range?.acc, 16),
-      gyroRange: rangeFromSetting(INSOLE_GYRO_RANGES, range?.gyro, 2000),
-    };
+    const { acc, gyro } = imuRangeFromSettings(this.device_information?.range);
+    return { accRange: acc, gyroRange: gyro };
   }
 }
 
