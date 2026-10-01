@@ -54,6 +54,20 @@
       <tr><th class="row">Acc [G]</th><td></td><td data-v="converted_acc.x"></td><td data-v="converted_acc.y"></td><td data-v="converted_acc.z"></td></tr>
     </table>
 
+    <div class="module" data-fifo-module hidden>
+      <div class="module-head">
+        <span data-fifo-title></span>
+        <button data-fifo-toggle disabled>収録開始</button>
+        <button data-fifo-csv disabled>CSV</button>
+      </div>
+      <div class="stats">
+        <span>collected <b data-fifo-collected>0</b></span>
+        <span>lag <b data-fifo-lag>0</b></span>
+        <span>dropped <b data-fifo-dropped>0</b></span>
+        <span data-fifo-phase></span>
+      </div>
+    </div>
+
     <div class="log" data-log></div>
 
     <details class="debug">
