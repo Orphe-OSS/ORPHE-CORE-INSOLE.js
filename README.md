@@ -26,14 +26,37 @@ await ble.begin('SENSOR_VALUES', { autoReconnect: true });
 
 ## インストール
 
+### CDN（`<script>` で読み込む）
+
+jsDelivr から配信しています。`@v<version>` には [リリースタグ](https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/tags) を指定します。
+
+```html
+<!-- SDK 本体。Orphe（CORE）/ OrpheInsole（INSOLE）などの互換クラスもグローバルに置く -->
+<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.1.0/dist/browser/orphe-core-insole.js"></script>
+<!-- 接続 UI（buildCoreToolkit / buildInsoleToolkit）を使う場合のみ。SDK 本体の後に読み込む -->
+<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.1.0/dist/browser/orphe-core-insole-toolkit.js"></script>
+```
+
+縮小版は `orphe-core-insole.min.js` / `orphe-core-insole-toolkit.min.js` です。
+CDN 版を使ったサンプル集は [ORPHE-CORE-INSOLE.js-EXAMPLE](https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/)（[ソース](https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js-EXAMPLE)）にあります。
+
+### ソースからビルドする
+
 npm には未公開です。クローンしてビルドします。
 
 ```bash
-git clone <このリポジトリ>
-cd orphe-device
+git clone https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js.git
+cd ORPHE-CORE-INSOLE.js
 npm install
-npm run build   # dist/ に ESM と型定義を出力
+npm run build           # dist/ に ESM と型定義を出力
+npm run build:browser   # dist/browser/ に <script> 用のファイルを出力
 ```
+
+### リリース
+
+`main` に push すると、`package.json` の version に対応するタグ（`v<version>`）が無ければ
+GitHub Actions（`.github/workflows/release.yml`）が `dist/browser` をビルドしてタグを作ります。
+jsDelivr はそのタグから配信します。版を上げるときは `npm version patch` で version を更新して `main` に反映します。
 
 ## 開発
 
