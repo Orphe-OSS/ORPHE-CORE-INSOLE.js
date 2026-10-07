@@ -33,6 +33,8 @@ import { generatedFrame } from './synthetic.ts';
 import type { InsoleSimulatorFrame, InsoleSimulatorPreset } from './synthetic.ts';
 
 const TICK_MS = 20;
+/** タイマーが遅れたときに 1 回の tick でまとめて送る最大パケット数（タブが裏に回った後の暴発を防ぐ） */
+const MAX_CATCH_UP_PACKETS = 25;
 
 /** シミュレータの設定 */
 export interface InsoleSimulatorOptions {
@@ -103,6 +105,7 @@ class SimInsoleDevice implements BleDevice, BleGattServer {
   private timer: ReturnType<typeof setInterval> | null = null;
   private serial = 0;
   private startedAt = 0;
+  private sentPackets = 0;
   private frameIndex = 0;
   private readonly frames: InsoleSimulatorFrame[] | null;
 
@@ -200,6 +203,7 @@ class SimInsoleDevice implements BleDevice, BleGattServer {
   private startStreaming(): void {
     if (this.timer) return;
     this.startedAt = Date.now();
+    this.sentPackets = 0;
     this.frameIndex = 0;
     this.timer = setInterval(() => this.tick(), TICK_MS);
   }
@@ -218,14 +222,28 @@ class SimInsoleDevice implements BleDevice, BleGattServer {
     return this.frames[this.frameIndex++] ?? null;
   }
 
+  /**
+   * 経過時間ぶんのパケットを送る。ブラウザがタイマーを間引いても（裏タブ・高負荷）、
+   * 実機と同じ 50 パケット/秒になるよう遅れた分をまとめて送る。
+   */
   private tick(): void {
+    const due = Math.floor((Date.now() - this.startedAt) / TICK_MS) + 1;
+    let count = Math.min(due - this.sentPackets, MAX_CATCH_UP_PACKETS);
+    // 追いつけないほど遅れたら（長時間の停止など）、遅れは捨てて今から数え直す
+    if (due - this.sentPackets > MAX_CATCH_UP_PACKETS) this.sentPackets = due - count;
+    while (count-- > 0 && this.timer) {
+      this.sendPacket(this.sentPackets * TICK_MS);
+      this.sentPackets++;
+    }
+  }
+
+  private sendPacket(packetTimeMs: number): void {
     if (!this.connected) return;
     const header = this.streamingMode === 1 ? 50 : this.streamingMode === 3 ? 55 : 56;
     const count = insolePacketFrameCount(header);
-    const elapsed = Date.now() - this.startedAt;
     const frames: InsolePacketFrame[] = [];
     for (let k = 0; k < count; k++) {
-      const frame = this.nextFrame(elapsed + (k * TICK_MS) / count);
+      const frame = this.nextFrame(packetTimeMs + (k * TICK_MS) / count);
       if (!frame) {
         this.disconnect();
         return;
@@ -235,7 +253,7 @@ class SimInsoleDevice implements BleDevice, BleGattServer {
     this.sensor.emit(encodeInsoleSensorValues({
       header,
       serial: this.serial,
-      time: new Date(),
+      time: new Date(this.startedAt + packetTimeMs),
       frames,
       intervalMs: TICK_MS / count,
     }));

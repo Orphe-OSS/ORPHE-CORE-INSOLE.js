@@ -72,3 +72,17 @@ test('createInsoleSimulator: frames + loop: false は最後まで流して切断
   await waitFor(() => disconnected, 'disconnect at end');
   assert.deepEqual(firstChannel, [1, 2, 3, 4]);
 });
+
+test('createInsoleSimulator: タイマーが遅れても経過時間ぶんのパケットを送る（50 パケット/秒）', async () => {
+  const ble = createInsoleSimulator(0, { preset: 'walk' });
+  let packets = 0;
+  ble.onRaw((uuid) => { if (uuid === 'SENSOR_VALUES') packets++; });
+  await ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  const started = Date.now();
+  // イベントループを 120ms 塞いで、タイマーの遅れを再現する
+  while (Date.now() - started < 120) { /* busy */ }
+  await new Promise(resolve => setTimeout(resolve, 100));
+  const elapsed = Date.now() - started;
+  ble.stop();
+  assert.ok(packets >= Math.floor(elapsed / 20) - 2, `packets ${packets} for ${elapsed}ms`);
+});
