@@ -186,6 +186,11 @@ export type {
 } from './compat/legacy-device.ts';
 
 export { OrpheInsoleSimulator } from './compat/insole-simulator.ts';
+export { createInsoleSimulator, insoleSimulatorBluetooth } from './simulator/insole-simulator.ts';
+export type { InsoleSimulatorDevice, InsoleSimulatorOptions } from './simulator/insole-simulator.ts';
+export type { InsoleSimulatorPreset } from './simulator/synthetic.ts';
+export { encodeInsoleSensorValues } from './simulator/insole-packet.ts';
+export type { InsolePacketFrame, InsolePacketInput } from './simulator/insole-packet.ts';
 export type {
   InsoleSimulatorBeginOptions,
   InsoleSimulatorDeviceInformation,
