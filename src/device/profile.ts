@@ -125,4 +125,9 @@ export interface DeviceProfile<TFields extends object = SensorFieldMap, TCommand
    * io には OrpheCoreInsole.transport が渡される。{@link OrpheCoreInsole.commands} から使う。
    */
   commands?(io: GattIo): TCommands;
+  /**
+   * advertisementreceived のイベントをフィールドに解釈する（INSOLE は `status`）。
+   * 対象外なら null。{@link OrpheCoreInsole.watchAdvertisements} の監視中に呼ばれる。
+   */
+  parseAdvertisement?(event: unknown): Partial<TFields> | null;
 }

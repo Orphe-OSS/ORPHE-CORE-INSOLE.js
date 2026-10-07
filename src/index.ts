@@ -8,6 +8,9 @@
 // ── デバイス（ファサード） ────────────────────────────────────────
 export { OrpheCoreInsole } from './device/orphe-core-insole.ts';
 export type { LifecycleEventName, OrpheCoreInsoleOptions } from './device/orphe-core-insole.ts';
+export type { SharedBridgeOptions, SharedBridgeRole } from './device/shared-bridge.ts';
+export { decodeInsoleAdvertisement } from './protocol/advertisement.ts';
+export type { BleAdvertisingEvent, InsoleAdvertisementStatus } from './protocol/advertisement.ts';
 export { DEVICE_INFORMATION_OPCODE } from './protocol/commands.ts';
 export type {
   BeginContext,
@@ -171,7 +174,7 @@ export type {
 export { Orphe } from './compat/orphe-core.ts';
 export type { CoreBeginOptions, LegacyCoreDeviceInformation, OrpheInjections } from './compat/orphe-core.ts';
 export { OrpheInsole } from './compat/orphe-insole.ts';
-export type { InsoleAdvertisementStatus, InsoleBeginOptions, InsoleSensorDataEvent } from './compat/orphe-insole.ts';
+export type { InsoleBeginOptions, InsoleSensorDataEvent } from './compat/orphe-insole.ts';
 export { OrpheInsoleFifo, OrpheInsoleGait } from './compat/insole-modules.ts';
 export { LegacyDevice } from './compat/legacy-device.ts';
 export type {

@@ -10,6 +10,8 @@ import type { GattIo } from '../ble/types.ts';
 import type { CharacteristicId } from '../protocol/uuids.ts';
 import { TransportError } from '../ble/errors.ts';
 import { DEVICE_INFORMATION_OPCODE } from '../protocol/commands.ts';
+import { decodeInsoleAdvertisement } from '../protocol/advertisement.ts';
+import type { InsoleAdvertisementStatus } from '../protocol/advertisement.ts';
 import type { BeginContext, DeviceMode, DeviceProfile, LostDataInfo } from '../device/profile.ts';
 import type { Quat, Vec3 } from '../protocol/geometry.ts';
 import { ORPHE_UUID, orpheCharacteristics } from '../protocol/uuids.ts';
@@ -137,6 +139,8 @@ export interface InsoleSensorFields {
   ble_frequency: number;
   /** serial 欠損・重複（lostData 相当。modular 差分） */
   lost_data: LostDataInfo;
+  /** アドバタイズから読み取った状態（watchAdvertisements() の監視中だけ届く） */
+  status: InsoleAdvertisementStatus;
 }
 
 /**
@@ -455,6 +459,12 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
 
   modes(): DeviceMode[] {
     return INSOLE_MODES.map(mode => ({ ...mode }));
+  }
+
+  /** アドバタイズを `status` フィールドに解釈する */
+  parseAdvertisement(event: unknown): InsoleSensorSample | null {
+    const status = decodeInsoleAdvertisement(event);
+    return status ? { status } : null;
   }
 
   /** デバイスコマンド（ストリーミングモード切替など）。通常は `ble.commands` から使う */

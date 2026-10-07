@@ -24,6 +24,8 @@ import { SampleEmitter } from './sample-emitter.ts';
 import { readDateTime, syncDeviceTime, writeDateTime } from './time-sync.ts';
 import type { DeviceDateTime, SyncTimeOptions, SyncTimeResult } from './time-sync.ts';
 import { autoProfile } from '../profiles/auto.ts';
+import { SharedBridgeLink } from './shared-bridge.ts';
+import type { SharedBridgeHost, SharedBridgeOptions, SharedBridgeRole } from './shared-bridge.ts';
 import type { SampleListener } from './sample-emitter.ts';
 
 /** FW 情報を read する characteristic の論理名 */
@@ -57,6 +59,8 @@ export interface OrpheCoreInsoleOptions<
   wait?: (ms: number) => Promise<void>;
   /** テスト用注入点: BLE 実測周波数計測の単調クロック [ms]。既定 performance.now */
   clock?: () => number;
+  /** タブ間共有（begin の useSharedBridge）の環境とタイミング。通常は省略する */
+  sharedBridge?: SharedBridgeOptions;
 }
 
 /** {@link OrpheCoreInsole.onEvent} で購読できるライフサイクルイベント名 */
@@ -91,6 +95,11 @@ export class OrpheCoreInsole<
   private lastBeginOptions: BeginOptions = {};
   private hasBegun = false;
   private firmwareInfo: FirmwareInfo | null = null;
+  private readonly sharedBridgeOptions: SharedBridgeOptions;
+  private bridgeLink: SharedBridgeLink | null = null;
+  private advertisementListener: ((event: unknown) => void) | null = null;
+  private advertisementDevice: { removeEventListener(type: string, listener: (event: unknown) => void): void } | null = null;
+  private latestAdvertisement: Partial<TFields> | null = null;
   private readonly debugLog: (message: string, detail?: unknown) => void;
 
   constructor(options: OrpheCoreInsoleOptions<TFields, TCommands, TProfile> = {}) {
@@ -99,6 +108,7 @@ export class OrpheCoreInsole<
     this.userEvents = options.events ?? {};
     this.clock = options.clock ?? (() => performance.now());
     this.debugLog = options.log ?? (() => {});
+    this.sharedBridgeOptions = options.sharedBridge ?? {};
     this.emitter = new SampleEmitter<TFields>((error) => this.userEvents.onError?.(error));
 
     // ユーザイベントは呼び出し時点で参照する（後から差し替え可能な遅延バインド）。
@@ -388,10 +398,19 @@ export class OrpheCoreInsole<
   async begin(type?: string, options: BeginOptions = {}): Promise<unknown> {
     // chooser の強制は最初のデバイス選択にだけ効かせる。プロファイルの各 GATT 操作や
     // 自動再接続へは渡さない（渡すと操作のたびに chooser が開く）
-    const { forceDeviceSelection, ...profileOptions } = options;
+    const { forceDeviceSelection, useSharedBridge, ...profileOptions } = options;
     this.beginType = type;
     this.lastBeginOptions = profileOptions;
     this.hasBegun = true;
+
+    this.releaseSharedBridge();
+    if (useSharedBridge === true) {
+      const link = new SharedBridgeLink(this as unknown as SharedBridgeHost, this.sharedBridgeOptions);
+      if (link.joinIfRemotePrimary(type, profileOptions)) {
+        this.bridgeLink = link;
+        return 'done begin(); BRIDGE SECONDARY';
+      }
+    }
 
     if (options.autoReconnect) {
       this.transport.enableAutoReconnect(options.reconnect ?? {});
@@ -407,7 +426,27 @@ export class OrpheCoreInsole<
         this.transport.setConnecting(false);
       }
     }
-    return this.runBegin(type, profileOptions);
+    const result = await this.runBegin(type, profileOptions);
+    if (useSharedBridge === true) {
+      const link = new SharedBridgeLink(this as unknown as SharedBridgeHost, this.sharedBridgeOptions);
+      link.claimPrimary();
+      this.bridgeLink = link;
+    }
+    return result;
+  }
+
+  /**
+   * タブ間共有（begin の useSharedBridge: true）での役割。
+   * 'primary' は自分が BLE 接続を持って配信中、'secondary' は別タブの接続から受信中。共有していなければ null
+   */
+  get sharedBridgeRole(): SharedBridgeRole | null {
+    return this.bridgeLink?.currentRole ?? null;
+  }
+
+  /** タブ間共有だけをやめる（BLE 接続はそのまま）。Primary なら他タブへ切断を知らせる */
+  releaseSharedBridge(): void {
+    this.bridgeLink?.release();
+    this.bridgeLink = null;
   }
 
   /** begin シーケンス本体（手動 begin と自動再接続の共通経路） */
@@ -447,9 +486,66 @@ export class OrpheCoreInsole<
     this.reset();
   }
 
-  /** stop() と同じ。切断・記憶クリア・自動再接続解除 */
+  /** stop() と同じ。切断・記憶クリア・自動再接続解除。タブ間共有も解除する */
   reset(): void {
+    const wasSecondary = this.bridgeLink?.currentRole === 'secondary';
+    this.releaseSharedBridge();
+    this.stopWatchingAdvertisements();
+    if (wasSecondary) {
+      this.transport.disableAutoReconnect();
+      return;
+    }
     this.transport.reset();
+  }
+
+  // ─── アドバタイズ監視 ────────────────────────────────────────
+
+  /**
+   * 選択中のデバイスのアドバタイズを監視する（接続していなくても受信できる）。
+   * 受信は events.onAdvertisement / onEvent('onAdvertisement') と、プロファイルが解釈した
+   * フィールド（INSOLE は `status`: バッテリー・取付位置・FW 版）の on() 配送で届く。
+   * ブラウザやデバイスが対応していなければ false を返す。
+   */
+  async watchAdvertisements(): Promise<boolean> {
+    const device = this.transport.device;
+    if (!device || typeof device.watchAdvertisements !== 'function') {
+      this.debugLog('watchAdvertisements はこの環境では使えません');
+      return false;
+    }
+    if (!this.advertisementListener) {
+      this.advertisementListener = (event) => this.receiveAdvertisement(event);
+      device.addEventListener('advertisementreceived', this.advertisementListener);
+      this.advertisementDevice = device;
+    }
+    try {
+      await device.watchAdvertisements();
+      return true;
+    } catch (error) {
+      this.reportError(error);
+      return false;
+    }
+  }
+
+  /** アドバタイズの監視をやめる */
+  stopWatchingAdvertisements(): void {
+    if (this.advertisementDevice && this.advertisementListener) {
+      this.advertisementDevice.removeEventListener('advertisementreceived', this.advertisementListener);
+    }
+    this.advertisementListener = null;
+    this.advertisementDevice = null;
+  }
+
+  /** 最後に受信したアドバタイズをプロファイルが解釈した結果（INSOLE は `{ status }`）。未受信なら null */
+  get lastAdvertisement(): Partial<TFields> | null {
+    return this.latestAdvertisement;
+  }
+
+  private receiveAdvertisement(event: unknown): void {
+    this.emitLifecycle('onAdvertisement', event);
+    const sample = this.profile.parseAdvertisement?.(event) ?? null;
+    if (!sample) return;
+    this.latestAdvertisement = sample;
+    this.emitter.emit('ADVERTISEMENT', [sample]);
   }
 
   /** GATT 接続中なら true */

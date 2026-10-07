@@ -143,6 +143,11 @@ export class AutoProfile implements DeviceProfile<AutoSensorFields, AutoCommands
     return this.resolved ? this.resolved.modes() : [];
   }
 
+  /** INSOLE と判別していればアドバタイズを解釈する */
+  parseAdvertisement(event: unknown): Partial<AutoSensorFields> | null {
+    return this.resolved === this.insole ? this.insole.parseAdvertisement(event) : null;
+  }
+
   /** 判別済みプロファイルのコマンド。未判別なら throw する */
   commands(io: GattIo): AutoCommands {
     return this.requireResolved().commands(io);
