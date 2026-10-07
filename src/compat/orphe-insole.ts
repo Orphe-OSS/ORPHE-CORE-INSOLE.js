@@ -3,6 +3,7 @@
  * 通信・パース・接続シーケンスは OrpheCoreInsole + insoleProfile が担い、ここは
  * 旧来の呼び出し形をそのまま受けるための薄い層。
  */
+import { DEVICE_INFORMATION_OPCODE } from '../protocol/commands.ts';
 import type { LegacyBeginOptions, LegacyDeviceInjections } from './legacy-device.ts';
 import { LegacyDevice } from './legacy-device.ts';
 import type {
@@ -177,7 +178,7 @@ export class OrpheInsole extends LegacyDevice<InsoleSensorFields> {
 
   /** 解析ログをリセットする */
   resetAnalysisLogs(): Promise<void> {
-    return this.write('DEVICE_INFORMATION', [0x04]);
+    return this.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ANALYSIS_LOGS]);
   }
 
   /**

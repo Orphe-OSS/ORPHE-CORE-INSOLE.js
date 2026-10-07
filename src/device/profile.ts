@@ -88,7 +88,7 @@ export interface BeginContext {
  * デバイス固有差分（CORE / INSOLE）の注入点。
  * OrpheCoreInsole はこの interface だけに依存し、接続シーケンスとパースを委譲する。
  */
-export interface DeviceProfile<TFields extends object = SensorFieldMap> {
+export interface DeviceProfile<TFields extends object = SensorFieldMap, TCommands = unknown> {
   /** 'core' | 'insole' など */
   readonly kind: string;
   /** begin() の type 省略時に使う notification type */
@@ -120,4 +120,9 @@ export interface DeviceProfile<TFields extends object = SensorFieldMap> {
    * 未実装なら FW によるモード制限を行わない。
    */
   modes?(): DeviceMode[];
+  /**
+   * デバイス固有コマンド（LED・姿勢リセット・ストリーミングモード切替など）を作る。
+   * io には OrpheCoreInsole.transport が渡される。{@link OrpheCoreInsole.commands} から使う。
+   */
+  commands?(io: GattIo): TCommands;
 }

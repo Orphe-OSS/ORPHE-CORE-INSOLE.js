@@ -8,6 +8,8 @@
 import type { CharacteristicId } from '../protocol/uuids.ts';
 import { TransportError } from '../ble/errors.ts';
 import type { BeginContext, DeviceMode, DeviceProfile, LostDataInfo } from '../device/profile.ts';
+import type { GattIo } from '../ble/types.ts';
+import { DEVICE_INFORMATION_OPCODE } from '../protocol/commands.ts';
 import type { Quat, Vec3 } from '../protocol/geometry.ts';
 import type { BleRequestDeviceOptions } from '../ble/web-bluetooth.ts';
 import { ORPHE_UUID, orpheCharacteristics } from '../protocol/uuids.ts';
@@ -399,7 +401,7 @@ export function decodeCoreDeviceInformation(data: DataView): CoreDeviceInformati
 /** setDeviceInformation の書込 payload */
 export function encodeCoreDeviceInformation(info: Omit<CoreDeviceInformation, 'raw' | 'battery' | 'rec_mode'>): Uint8Array {
   return Uint8Array.from([
-    0x01,
+    DEVICE_INFORMATION_OPCODE.WRITE_SETTINGS,
     info.lr,
     info.led_brightness,
     0, // モーターの強さ（未使用）
@@ -436,6 +438,91 @@ export function coreRequestDeviceOptions(options: { namePrefix?: string } = {}):
   };
 }
 
+/** {@link CoreDeviceInformation} のうち書き込める項目 */
+export type CoreDeviceSettings = Omit<CoreDeviceInformation, 'raw' | 'battery' | 'rec_mode'>;
+
+/**
+ * ORPHE CORE のデバイスコマンド。`ble.commands` で取得する。
+ *
+ *   const ble = new OrpheCoreInsole({ profile: coreProfile() });
+ *   await ble.begin('SENSOR_VALUES');
+ *   await ble.commands.setLED(true, 2);
+ */
+export interface CoreCommands {
+  /** DEVICE_INFORMATION を読み直す（`profile.device_information` も更新する） */
+  readDeviceInformation(): Promise<CoreDeviceInformation>;
+  /** デバイス設定を書き込む（`profile.device_information` も更新する） */
+  writeDeviceInformation(settings: CoreDeviceSettings): Promise<void>;
+  /** 加速度・角速度のレンジを物理値で変える（acc: 2/4/8/16、gyro: 250/500/1000/2000）。省略した軸は維持 */
+  setRange(range: { acc?: number; gyro?: number }): Promise<void>;
+  /** LED の点灯パターンを設定する（on: 点灯 / 消灯、pattern: 0..4） */
+  setLED(on: boolean | number, pattern?: number): Promise<void>;
+  /** LED の明るさを設定する（0..255、0 で消灯） */
+  setLEDBrightness(value: number): Promise<void>;
+  /** 取付位置を設定する（0: 左足背, 1: 右足背, 2: 左足底, 3: 右足底） */
+  setMountPosition(position: 0 | 1 | 2 | 3): Promise<void>;
+  /** 姿勢（クォータニオン計算）をリセットする */
+  resetAttitude(): Promise<void>;
+  /** 解析ログ（歩数など）をリセットする */
+  resetAnalysisLogs(): Promise<void>;
+}
+
+/** CoreProfile と GATT 操作から {@link CoreCommands} を作る */
+export function coreCommands(profile: CoreProfile, io: GattIo): CoreCommands {
+  const current = async (): Promise<CoreDeviceInformation> =>
+    profile.device_information ?? commands.readDeviceInformation();
+  const commands: CoreCommands = {
+    async readDeviceInformation() {
+      profile.device_information = decodeCoreDeviceInformation(await io.read('DEVICE_INFORMATION'));
+      return profile.device_information;
+    },
+    async writeDeviceInformation(settings) {
+      await io.write('DEVICE_INFORMATION', encodeCoreDeviceInformation(settings));
+      const info = profile.device_information;
+      if (info) {
+        profile.device_information = { ...info, ...settings, range: { ...settings.range }, raw: info.raw };
+      }
+    },
+    async setRange(range) {
+      const info = await current();
+      const acc = indexFromRange(CORE_ACC_RANGES, range.acc);
+      const gyro = indexFromRange(CORE_GYRO_RANGES, range.gyro);
+      if (range.acc !== undefined && acc === null) {
+        throw new TransportError('INVALID_MODE', `Invalid acc range: ${range.acc}. Use ${CORE_ACC_RANGES.join(' | ')}.`);
+      }
+      if (range.gyro !== undefined && gyro === null) {
+        throw new TransportError('INVALID_MODE', `Invalid gyro range: ${range.gyro}. Use ${CORE_GYRO_RANGES.join(' | ')}.`);
+      }
+      await commands.writeDeviceInformation({
+        ...info,
+        range: { acc: acc ?? info.range.acc, gyro: gyro ?? info.range.gyro },
+      });
+    },
+    setLED(on, pattern = 0) {
+      return io.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.SET_LED, on ? 1 : 0, pattern]);
+    },
+    async setLEDBrightness(value) {
+      const info = await current();
+      await commands.writeDeviceInformation({ ...info, led_brightness: value });
+    },
+    async setMountPosition(position) {
+      if (!Number.isInteger(position) || position < 0 || position > 3) {
+        throw new TransportError('INVALID_MODE', `Invalid mount position: ${position}. Use 0..3.`);
+      }
+      const info = await commands.readDeviceInformation();
+      await commands.writeDeviceInformation({ ...info, lr: position });
+    },
+    resetAttitude() {
+      return io.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ATTITUDE]);
+    },
+    resetAnalysisLogs() {
+      profile.resetAnalysisState();
+      return io.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ANALYSIS_LOGS]);
+    },
+  };
+  return commands;
+}
+
 // ─── プロファイル ────────────────────────────────────────────────
 
 /** begin() に渡せる notification type の一覧 */
@@ -466,7 +553,7 @@ export interface CoreProfileOptions {
   acceptExtendedSensorValues?: boolean;
 }
 
-export class CoreProfile implements DeviceProfile<CoreSensorFields> {
+export class CoreProfile implements DeviceProfile<CoreSensorFields, CoreCommands> {
   readonly kind = 'core';
   readonly defaultNotificationType = 'STEP_ANALYSIS';
 
@@ -510,6 +597,11 @@ export class CoreProfile implements DeviceProfile<CoreSensorFields> {
 
   modes(): DeviceMode[] {
     return CORE_MODES.map(mode => ({ ...mode }));
+  }
+
+  /** デバイスコマンド（LED・姿勢リセットなど）。通常は `ble.commands` から使う */
+  commands(io: GattIo): CoreCommands {
+    return coreCommands(this, io);
   }
 
   /** resetAnalysisLogs 相当の内部カウンタ初期化 */

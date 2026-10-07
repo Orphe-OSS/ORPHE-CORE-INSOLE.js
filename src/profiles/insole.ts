@@ -9,6 +9,7 @@ import type { BleRequestDeviceOptions } from '../ble/web-bluetooth.ts';
 import type { GattIo } from '../ble/types.ts';
 import type { CharacteristicId } from '../protocol/uuids.ts';
 import { TransportError } from '../ble/errors.ts';
+import { DEVICE_INFORMATION_OPCODE } from '../protocol/commands.ts';
 import type { BeginContext, DeviceMode, DeviceProfile, LostDataInfo } from '../device/profile.ts';
 import type { Quat, Vec3 } from '../protocol/geometry.ts';
 import { ORPHE_UUID, orpheCharacteristics } from '../protocol/uuids.ts';
@@ -359,6 +360,38 @@ export function decodeInsoleDeviceInformation(data: DataView): InsoleDeviceInfor
   };
 }
 
+/**
+ * ORPHE INSOLE のデバイスコマンド。`ble.commands` で取得する。
+ *
+ *   const ble = new OrpheCoreInsole({ profile: insoleProfile() });
+ *   await ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+ *   await ble.commands.setDataStreamingMode(3);
+ */
+export interface InsoleCommands {
+  /** DEVICE_INFORMATION を読み直す（`profile.device_information` も更新する） */
+  readDeviceInformation(): Promise<InsoleDeviceInformation>;
+  /** データストリーミングモード（1 / 3 / 4）を切り替える。接続中に使える */
+  setDataStreamingMode(mode: number): Promise<void>;
+  /** 解析ログ（歩数など）をリセットする */
+  resetAnalysisLogs(): Promise<void>;
+}
+
+/** InsoleProfile と GATT 操作から {@link InsoleCommands} を作る */
+export function insoleCommands(profile: InsoleProfile, io: GattIo): InsoleCommands {
+  return {
+    async readDeviceInformation() {
+      profile.device_information = decodeInsoleDeviceInformation(await io.read('DEVICE_INFORMATION'));
+      return profile.device_information;
+    },
+    setDataStreamingMode(mode) {
+      return profile.setDataStreamingMode(io, mode);
+    },
+    resetAnalysisLogs() {
+      return io.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ANALYSIS_LOGS]);
+    },
+  };
+}
+
 /** 係数取得の間に使う配信モード（圧力を含むモードでないと FW が応答しない） */
 const PRESSURE_CALIBRATION_FETCH_MODE = 4;
 
@@ -381,7 +414,7 @@ export interface InsoleProfileOptions {
   };
 }
 
-export class InsoleProfile implements DeviceProfile<InsoleSensorFields> {
+export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCommands> {
   readonly kind = 'insole';
   readonly defaultNotificationType = 'SENSOR_VALUES';
 
@@ -422,6 +455,11 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields> {
 
   modes(): DeviceMode[] {
     return INSOLE_MODES.map(mode => ({ ...mode }));
+  }
+
+  /** デバイスコマンド（ストリーミングモード切替など）。通常は `ble.commands` から使う */
+  commands(io: GattIo): InsoleCommands {
+    return insoleCommands(this, io);
   }
 
   async begin(context: BeginContext): Promise<string> {
@@ -581,7 +619,7 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields> {
     if (!Number.isInteger(normalizedMode) || !INSOLE_STREAMING_MODES[normalizedMode]) {
       throw new TransportError('INVALID_MODE', `Invalid ORPHE INSOLE data streaming mode: ${mode}. Use 1, 3, or 4.`);
     }
-    await transport.write('DEVICE_INFORMATION', Uint8Array.from([0x0d, normalizedMode]));
+    await transport.write('DEVICE_INFORMATION', Uint8Array.from([DEVICE_INFORMATION_OPCODE.SET_STREAMING_MODE, normalizedMode]));
     this.streaming_mode = normalizedMode;
   }
 

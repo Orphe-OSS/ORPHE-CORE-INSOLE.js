@@ -14,9 +14,10 @@ import type { PressureCalibration } from '../protocol/pressure-calibration.ts';
 import { orpheCharacteristics } from '../protocol/uuids.ts';
 import type { CharacteristicId } from '../protocol/uuids.ts';
 import { CoreProfile } from './core.ts';
-import type { CoreDeviceInformation, CoreProfileOptions, CoreSensorFields } from './core.ts';
+import type { CoreCommands, CoreDeviceInformation, CoreProfileOptions, CoreSensorFields } from './core.ts';
+import type { GattIo } from '../ble/types.ts';
 import { InsoleProfile } from './insole.ts';
-import type { InsoleDeviceInformation, InsoleProfileOptions, InsoleSensorFields } from './insole.ts';
+import type { InsoleCommands, InsoleDeviceInformation, InsoleProfileOptions, InsoleSensorFields } from './insole.ts';
 
 /** 判別結果のデバイス種別 */
 export type DeviceKind = 'core' | 'insole';
@@ -58,7 +59,10 @@ function unique<T>(items: T[]): T[] {
   });
 }
 
-export class AutoProfile implements DeviceProfile<AutoSensorFields> {
+/** autoProfile のコマンド。判別後に `ble.profile.kind` で CORE / INSOLE を見分けて使う */
+export type AutoCommands = CoreCommands | InsoleCommands;
+
+export class AutoProfile implements DeviceProfile<AutoSensorFields, AutoCommands> {
   /** CORE と判別したときに使うプロファイル */
   readonly core: CoreProfile;
   /** INSOLE と判別したときに使うプロファイル */
@@ -137,6 +141,11 @@ export class AutoProfile implements DeviceProfile<AutoSensorFields> {
 
   modes(): DeviceMode[] {
     return this.resolved ? this.resolved.modes() : [];
+  }
+
+  /** 判別済みプロファイルのコマンド。未判別なら throw する */
+  commands(io: GattIo): AutoCommands {
+    return this.requireResolved().commands(io);
   }
 
   begin(context: BeginContext): Promise<unknown> {

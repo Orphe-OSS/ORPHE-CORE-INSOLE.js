@@ -19,6 +19,7 @@ import type {
 } from '../profiles/core.ts';
 import { CoreProfile, coreProfile, decodeCoreDeviceInformation, encodeCoreDeviceInformation } from '../profiles/core.ts';
 import { ORPHE_UUID } from '../protocol/uuids.ts';
+import { DEVICE_INFORMATION_OPCODE } from '../protocol/commands.ts';
 import type { EulerAngles, Quat, Vec3 } from '../protocol/geometry.ts';
 import { BleSharedBridge } from '../bridge.ts';
 import type { BridgeCallbacks, BridgeEnvironment, BridgeTimingOptions } from '../bridge.ts';
@@ -286,7 +287,7 @@ export class Orphe extends LegacyDevice<CoreSensorFields> {
 
   /** LED の点灯パターンを設定する（on_off: 0/1、pattern: 0..4） */
   setLED(on_off: number, pattern: number): Promise<void> {
-    return this.write('DEVICE_INFORMATION', [0x02, on_off, pattern]);
+    return this.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.SET_LED, on_off, pattern]);
   }
 
   /** LED の明るさを設定する（0..255、0 で消灯）。デバイス情報は取得済みであること */
@@ -310,7 +311,7 @@ export class Orphe extends LegacyDevice<CoreSensorFields> {
 
   /** 姿勢（クォータニオン計算）をリセットする */
   resetMotionSensorAttitude(): Promise<void> {
-    return this.write('DEVICE_INFORMATION', [0x03]);
+    return this.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ATTITUDE]);
   }
 
   /** 解析ログ（歩数など）をリセットする */
@@ -320,7 +321,7 @@ export class Orphe extends LegacyDevice<CoreSensorFields> {
     this.stride = { foot_angle: 0, x: 0, y: 0, z: 0, steps: 0 };
     this.pronation = { landing_impact: 0, x: 0, y: 0, z: 0, steps: 0 };
     this.steps_number = 0;
-    return this.write('DEVICE_INFORMATION', [0x04]);
+    return this.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ANALYSIS_LOGS]);
   }
 
   // ─── ユーザが上書きするコールバック ────────────────────────────
