@@ -32,9 +32,14 @@ for (const suffix of ['.js', '.min.js']) {
       if (typeof value === 'function') assert.equal(value.name, name, 'クラス名・関数名が圧縮で変わらない');
     }
     assert.equal(typeof g.OrpheInsoleUtils.computeCoP, 'function');
-    assert.ok(g.cores[0] instanceof g.Orphe, 'Toolkit は orphe-core-insole.js のクラスを使う');
+    const { OrpheCoreInsole } = g.OrpheCoreInsoleJS;
+    assert.ok(g.cores[0] instanceof OrpheCoreInsole, 'Toolkit は orphe-core-insole.js の OrpheCoreInsole を使う');
+    assert.equal(g.cores[0].profile.kind, 'core');
     assert.equal(g.bles, g.cores);
-    assert.ok(g.insoles[0] instanceof g.OrpheInsole);
+    assert.ok(g.insoles[0] instanceof OrpheCoreInsole);
+    assert.equal(g.insoles[0].profile.kind, 'insole');
+    assert.equal(typeof g.OrpheCoreInsole, 'undefined', '新 API はトップレベルのグローバルに置かない');
+    assert.equal(typeof g.OrpheCoreInsoleJS.createInsoleSimulator, 'function');
 
     g.buildCoreToolkit(document.getElementById('core'), 'CORE', 0);
     g.buildInsoleToolkit(document.getElementById('insole'), 'INSOLE', 1, { onError() {} });
@@ -46,7 +51,7 @@ for (const suffix of ['.js', '.min.js']) {
 
     assert.equal(g.orpheCore, null);
     const companion = g.buildCoreCompanionToolkit(document.getElementById('core'), 'COMPANION');
-    assert.ok(companion instanceof g.Orphe);
+    assert.ok(companion instanceof OrpheCoreInsole);
     assert.equal(g.orpheCore, companion);
   });
 }

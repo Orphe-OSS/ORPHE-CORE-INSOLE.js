@@ -441,6 +441,9 @@ export function coreRequestDeviceOptions(options: { namePrefix?: string } = {}):
 /** {@link CoreDeviceInformation} のうち書き込める項目 */
 export type CoreDeviceSettings = Omit<CoreDeviceInformation, 'raw' | 'battery' | 'rec_mode'>;
 
+/** 取付位置（lr）にこの値を書くと、FW は現在の取付位置を変えない */
+const KEEP_MOUNT_POSITION = 0xff;
+
 /**
  * ORPHE CORE のデバイスコマンド。`ble.commands` で取得する。
  *
@@ -480,7 +483,8 @@ export function coreCommands(profile: CoreProfile, io: GattIo): CoreCommands {
       await io.write('DEVICE_INFORMATION', encodeCoreDeviceInformation(settings));
       const info = profile.device_information;
       if (info) {
-        profile.device_information = { ...info, ...settings, range: { ...settings.range }, raw: info.raw };
+        const lr = settings.lr === KEEP_MOUNT_POSITION ? info.lr : settings.lr;
+        profile.device_information = { ...info, ...settings, lr, range: { ...settings.range }, raw: info.raw };
       }
     },
     async setRange(range) {
@@ -495,6 +499,7 @@ export function coreCommands(profile: CoreProfile, io: GattIo): CoreCommands {
       }
       await commands.writeDeviceInformation({
         ...info,
+        lr: KEEP_MOUNT_POSITION,
         range: { acc: acc ?? info.range.acc, gyro: gyro ?? info.range.gyro },
       });
     },
@@ -503,7 +508,7 @@ export function coreCommands(profile: CoreProfile, io: GattIo): CoreCommands {
     },
     async setLEDBrightness(value) {
       const info = await current();
-      await commands.writeDeviceInformation({ ...info, led_brightness: value });
+      await commands.writeDeviceInformation({ ...info, lr: KEEP_MOUNT_POSITION, led_brightness: value });
     },
     async setMountPosition(position) {
       if (!Number.isInteger(position) || position < 0 || position > 3) {
