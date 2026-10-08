@@ -5,18 +5,31 @@
  * buildInsoleToolkit() を呼ぶだけで、接続トグル・周波数・左右バッジ・バッテリー・FW バージョン・
  * 再接続ステータス・設定モーダル（出力選択 / Realtime・FIFO / ストリーミング形式）を生成する。
  * 計測の状態管理は InsoleToolkitSession が持ち、getInsoleToolkitSession() で取り出せる。
+ * 操作対象は insoles[0] / [1]。要素は OrpheCoreInsole（insoleProfile）なので、
+ * `insoles[0].on('press', …)` / `insoles[0].onEvent('onConnect', …)` / `insoles[0].commands` で使う。
  */
 import {
+  FifoRecorder,
+  InsoleGait,
   InsoleToolkitSession,
   INSOLE_TOOLKIT_STEP_UNSUPPORTED_FW,
-  OrpheInsole,
-  OrpheInsoleFifo,
-  OrpheInsoleGait,
-  OrpheInsoleSimulator,
+  OrpheCoreInsole,
+  createInsoleSimulator,
+  insoleFirmwareVersion,
+  insoleProfile,
   resolveInsoleToolkitProfile,
 } from '../index.ts';
-import type { InsoleSessionAdapters, InsoleSessionDevice, InsoleToolkitSessionOptions } from '../index.ts';
+import type {
+  InsoleCommands,
+  InsoleProfile,
+  InsoleSensorFields,
+  InsoleSessionAdapters,
+  InsoleSessionFifo,
+  InsoleSessionGait,
+  InsoleToolkitSessionOptions,
+} from '../index.ts';
 import { buildElement, byId } from './dom.ts';
+import { duplicateDeviceGuard } from './device-guard.ts';
 
 /** buildInsoleToolkit() のオプション */
 export interface InsoleToolkitOptions extends InsoleToolkitSessionOptions {
@@ -24,11 +37,23 @@ export interface InsoleToolkitOptions extends InsoleToolkitSessionOptions {
   autoReconnect?: boolean;
 }
 
-type ToolkitInsole = OrpheInsole | OrpheInsoleSimulator;
-type Callbacks = Record<string, unknown> & { id: number };
+/** InsoleToolkit が操作する ORPHE INSOLE（実機またはシミュレータ） */
+export type ToolkitInsole = OrpheCoreInsole<InsoleSensorFields, InsoleCommands, InsoleProfile>;
+
+/** シミュレータに差し替えたスロット */
+const simulatedSlots = new Set<number>();
+
+function createToolkitInsole(id: number): ToolkitInsole {
+  return new OrpheCoreInsole({
+    profile: insoleProfile(),
+    id,
+    deviceGuard: duplicateDeviceGuard(() => insoles, id, 'ORPHE INSOLE'),
+    events: { onError: (error) => console.error('InsoleToolkit:', error) },
+  });
+}
 
 /** 操作対象の ORPHE INSOLE（最大 2 足） */
-export const insoles: ToolkitInsole[] = [new OrpheInsole(0), new OrpheInsole(1)];
+export const insoles: ToolkitInsole[] = [createToolkitInsole(0), createToolkitInsole(1)];
 
 /** buildInsoleToolkit() が生成したデバイス別セッション */
 export const insoleToolkitSessions: Array<InsoleToolkitSession | null> = [null, null];
@@ -51,7 +76,7 @@ function insole(no: number): ToolkitInsole {
  * @param insole_id 0 または 1
  * @param options sensorDataMode / outputs / profile / fifo / gait / simulator と begin() のオプション。
  *   fifo: false / gait: false でその機能を設定画面から選べなくする。
- *   simulator: true で実機の代わりに OrpheInsoleSimulator を使う。
+ *   simulator: true で実機の代わりに createInsoleSimulator() の擬似 INSOLE を使う。
  */
 export function buildInsoleToolkit(
   parent_element: Element,
@@ -72,16 +97,17 @@ export function buildInsoleToolkit(
     options.outputs = { sensorValues: true, stepAnalysis: false };
   }
 
-  if (options.simulator === true && !(insoles[insole_id] instanceof OrpheInsoleSimulator)) {
-    const simulator = new OrpheInsoleSimulator(insole_id);
-    simulator.setup();
-    insoles[insole_id] = simulator;
+  if (options.simulator === true && !simulatedSlots.has(insole_id)) {
+    insoles[insole_id] = createInsoleSimulator(insole_id, {}, {
+      events: { onError: (error) => console.error('InsoleToolkit:', error) },
+    });
+    simulatedSlots.add(insole_id);
   }
   const adapters: InsoleSessionAdapters = {
-    FifoClass: options.fifo === false ? null : OrpheInsoleFifo,
-    GaitClass: options.gait === false ? null : OrpheInsoleGait,
+    FifoClass: options.fifo === false ? null : FifoRecorder as unknown as new (insole: never, options: never) => InsoleSessionFifo,
+    GaitClass: options.gait === false ? null : InsoleGait as unknown as new (insole: never, options: never) => InsoleSessionGait,
   };
-  const session = new InsoleToolkitSession(insole(insole_id) as unknown as InsoleSessionDevice, options, adapters);
+  const session = new InsoleToolkitSession(insole(insole_id), options, adapters);
   session.addStateListener(() => syncInsoleToolkitControls(insole_id));
   insoleToolkitSessions[insole_id] = session;
   sessionsByInsole.set(insole(insole_id), session);
@@ -271,52 +297,40 @@ export async function toggleInsoleModule(dom: HTMLInputElement, options: InsoleT
   syncInsoleToolkitControls(number);
 }
 
-/** 利用者のコールバックを保ったまま、Toolkit の表示更新をコールバックへ差し込む（1 デバイス 1 回） */
+/** Toolkit の表示更新をデバイスのイベントへ購読する（1 デバイス 1 回。利用者の購読とは独立） */
 export function installInsoleToolkitCallbacks(target: ToolkitInsole, session: InsoleToolkitSession): void {
   sessionsByInsole.set(target, session);
   if (callbacksInstalled.has(target)) return;
   callbacksInstalled.add(target);
-  const device = target as unknown as Callbacks;
+  const id = target.id;
 
-  const userGotBLEFrequency = device.gotBLEFrequency as ((this: unknown, freq: number) => void) | undefined;
-  device.gotBLEFrequency = function (this: Callbacks, freq: number) {
-    const el = byId(`freq${this.id}`);
+  target.on('ble_frequency', (freq) => {
+    const el = byId(`freq${id}`);
     if (el) el.innerHTML = `${Math.floor(freq)} Hz`;
-    if (typeof userGotBLEFrequency === 'function') userGotBLEFrequency.call(this, freq);
-  };
-
-  const userOnDisconnect = device.onDisconnect as ((this: unknown, ...args: unknown[]) => void) | undefined;
-  device.onDisconnect = function (this: Callbacks, ...args: unknown[]) {
-    sessionsByInsole.get(this)?.markDisconnected();
-    if (typeof userOnDisconnect === 'function') userOnDisconnect.apply(this, args);
-  };
-
-  const userOnReconnectAttempt = device.onReconnectAttempt as ((this: unknown, info: unknown) => void) | undefined;
-  device.onReconnectAttempt = function (this: Callbacks, info: { attempt: number; maxAttempts: number }) {
-    const icon = byId(`icon_reconnect${this.id}`);
-    const text = byId(`reconnect_text${this.id}`);
+  });
+  target.onEvent('onDisconnect', () => {
+    sessionsByInsole.get(target)?.markDisconnected();
+  });
+  target.onEvent('onReconnectAttempt', (info) => {
+    const icon = byId(`icon_reconnect${id}`);
+    const text = byId(`reconnect_text${id}`);
     if (icon) icon.style.display = '';
     if (text) text.innerText = `${info.attempt}/${info.maxAttempts}`;
-    if (typeof userOnReconnectAttempt === 'function') userOnReconnectAttempt.call(this, info);
-  };
-  const userOnReconnectSuccess = device.onReconnectSuccess as ((this: unknown, info: unknown) => void) | undefined;
-  device.onReconnectSuccess = function (this: Callbacks, info: unknown) {
-    const icon = byId(`icon_reconnect${this.id}`);
+  });
+  target.onEvent('onReconnectSuccess', () => {
+    const icon = byId(`icon_reconnect${id}`);
     if (icon) icon.style.display = 'none';
-    updateInsoleLRBadge(this.id);
-    void updateInsoleFirmwareBadge(this.id);
-    if (typeof userOnReconnectSuccess === 'function') userOnReconnectSuccess.call(this, info);
-  };
-  const userOnReconnectFailed = device.onReconnectFailed as ((this: unknown, info: unknown) => void) | undefined;
-  device.onReconnectFailed = function (this: Callbacks, info: unknown) {
-    const icon = byId(`icon_reconnect${this.id}`);
+    updateInsoleLRBadge(id);
+    void updateInsoleFirmwareBadge(id);
+  });
+  target.onEvent('onReconnectFailed', () => {
+    const icon = byId(`icon_reconnect${id}`);
     if (icon) icon.style.display = 'none';
-    sessionsByInsole.get(this)?.markDisconnected();
-    setInsoleHeaderStatusOffline(this.id);
-    const ui = byId(`ui${this.id}`);
+    sessionsByInsole.get(target)?.markDisconnected();
+    setInsoleHeaderStatusOffline(id);
+    const ui = byId(`ui${id}`);
     if (ui) ui.style.visibility = 'hidden';
-    if (typeof userOnReconnectFailed === 'function') userOnReconnectFailed.call(this, info);
-  };
+  });
 }
 
 /** chooser のキャンセルかどうか */
@@ -329,7 +343,7 @@ export function isInsoleToolkitUserCancel(error: unknown): boolean {
 export function updateInsoleLRBadge(no: number): void {
   const badge = byId(`lr_badge${no}`);
   if (!badge) return;
-  const info = insole(no).device_information as { mount_position?: number } | '' | null;
+  const info = insole(no).profile.device_information;
   if (!info || typeof info.mount_position === 'undefined') {
     badge.innerText = '-';
     return;
@@ -348,12 +362,7 @@ export async function updateInsoleFirmwareBadge(no: number): Promise<void> {
   const badge = byId(`fw_badge${no}`);
   const wrap = byId(`icon_fw${no}`);
   if (!badge || !wrap) return;
-  let version: string | null = null;
-  try {
-    version = await insole(no).getFirmwareVersion();
-  } catch {
-    version = null;
-  }
+  const version = insoleFirmwareVersion(insole(no));
   if (!version) {
     badge.innerText = '';
     wrap.style.display = 'none';
@@ -510,7 +519,7 @@ export function syncInsoleToolkitControls(no: number): void {
 
 /** 設定モーダルのレンジ・取り付け位置・FW 表示を更新する */
 export async function updateInsoleModalParameters(no: number): Promise<void> {
-  const obj = await insole(no).getDeviceInformation() as { range: { acc: number; gyro: number }; mount_position: number };
+  const obj = await insole(no).commands.readDeviceInformation();
 
   const ACC_RANGE: Record<number, number> = { 0: 2, 1: 4, 2: 8, 3: 16 };
   const GYRO_RANGE: Record<number, number> = { 0: 250, 1: 500, 2: 1000, 3: 2000 };
@@ -527,13 +536,7 @@ export async function updateInsoleModalParameters(no: number): Promise<void> {
 
   const fw_el = byId(`info_firmware${no}`);
   if (fw_el) {
-    let version: string | null = null;
-    try {
-      version = await insole(no).getFirmwareVersion();
-    } catch {
-      version = null;
-    }
-    fw_el.innerText = version || 'unknown';
+    fw_el.innerText = insoleFirmwareVersion(insole(no)) || 'unknown';
   }
 
   syncInsoleToolkitControls(no);
@@ -543,13 +546,14 @@ export async function updateInsoleModalParameters(no: number): Promise<void> {
 
 /** インソールの解析ログをリセットする */
 export function resetInsoleModule(id: number): void {
-  void insole(id).resetAnalysisLogs();
+  const target = insole(id);
+  void target.commands.resetAnalysisLogs().catch((error: unknown) => target.reportError(error));
 }
 
 /** バッテリー残量（3 段階）に合わせてアイコンを更新する */
 export async function updateInsoleBatteryInfo(dom: Element): Promise<void> {
   const number = parseInt(dom.getAttribute('insole_id') || '0');
-  const obj = await insole(number).getDeviceInformation() as { battery: number };
+  const obj = await insole(number).commands.readDeviceInformation();
   let str_battery_status: string | undefined;
   if (obj.battery == 0) str_battery_status = 'empty';
   else if (obj.battery == 1) str_battery_status = 'normal';

@@ -3,6 +3,9 @@
  * 通信・パース・接続シーケンスは OrpheCoreInsole + insoleProfile が担い、ここは
  * 旧来の呼び出し形をそのまま受けるための薄い層。
  */
+import { DEVICE_INFORMATION_OPCODE } from '../protocol/commands.ts';
+import { decodeInsoleAdvertisement } from '../protocol/advertisement.ts';
+import type { InsoleAdvertisementStatus } from '../protocol/advertisement.ts';
 import type { LegacyBeginOptions, LegacyDeviceInjections } from './legacy-device.ts';
 import { LegacyDevice } from './legacy-device.ts';
 import type {
@@ -20,17 +23,7 @@ import { ORPHE_UUID } from '../protocol/uuids.ts';
 import type { EulerAngles, Quat, Vec3 } from '../protocol/geometry.ts';
 
 /** advertisement から読み取ったデバイス状態（gotStatus のペイロード） */
-export interface InsoleAdvertisementStatus {
-  name: string | undefined;
-  rssi: number | undefined;
-  txPower: number | undefined;
-  id: string;
-  battery: number;
-  model_type: number;
-  mounting_position: number;
-  human_activity_recognition: number;
-  version: string;
-}
+export type { InsoleAdvertisementStatus } from '../protocol/advertisement.ts';
 
 /** addSensorDataListener() に届くイベント */
 export interface InsoleSensorDataEvent {
@@ -177,7 +170,7 @@ export class OrpheInsole extends LegacyDevice<InsoleSensorFields> {
 
   /** 解析ログをリセットする */
   resetAnalysisLogs(): Promise<void> {
-    return this.write('DEVICE_INFORMATION', [0x04]);
+    return this.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ANALYSIS_LOGS]);
   }
 
   /**
@@ -269,19 +262,8 @@ export class OrpheInsole extends LegacyDevice<InsoleSensorFields> {
 
   onAdvertisementReceived(event: AdvertisingEvent): void {
     this.onAdvertisement(event);
-    const dv = event.manufacturerData?.get(0x0000) ?? null;
-    if (!dv || dv.byteLength < 18) return;
-    const status: InsoleAdvertisementStatus = {
-      name: event.device?.name,
-      rssi: event.rssi,
-      txPower: event.txPower,
-      id: event.device?.id ?? '',
-      battery: dv.getUint8(14),
-      model_type: dv.getUint8(5),
-      mounting_position: dv.getUint8(6),
-      human_activity_recognition: dv.getUint8(7),
-      version: `${dv.getUint8(15)}.${dv.getUint8(16)}.${dv.getUint8(17)}`,
-    };
+    const status = decodeInsoleAdvertisement(event);
+    if (!status) return;
     this.lastStatus = status;
     this.gotStatus(status);
   }

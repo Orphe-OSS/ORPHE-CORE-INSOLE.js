@@ -66,3 +66,38 @@ export function _untypedProfileAssertions(ble: OrpheCoreInsole): void {
     void v;
   });
 }
+
+import { coreProfile } from '../src/profiles/core.ts';
+
+export function _commandTypingAssertions(): void {
+  const core = new OrpheCoreInsole({ profile: coreProfile() });
+  const insole = new OrpheCoreInsole({ profile: insoleProfile() });
+
+  // プロファイルの具体型が保たれる
+  const battery: number | undefined = core.profile.device_information?.battery;
+  const mode: number | null = insole.profile.streaming_mode;
+  void battery;
+  void mode;
+
+  // コマンドはプロファイルごとに型付けされる
+  void core.commands.setLED(true, 2);
+  void insole.commands.setDataStreamingMode(3);
+  // @ts-expect-error INSOLE に LED コマンドは無い
+  void insole.commands.setLED(true);
+  // @ts-expect-error CORE にストリーミングモード切替は無い
+  void core.commands.setDataStreamingMode(3);
+
+  // フィールド推論も維持される
+  core.on('gait', (gait) => {
+    const steps: number = gait.steps;
+    void steps;
+  });
+  // @ts-expect-error CORE に press は無い
+  core.on('press', () => {});
+
+  // onEvent はライフサイクルイベント名と引数を型付けする
+  core.onEvent('onReconnectAttempt', (info) => {
+    const attempt: number = info.attempt;
+    void attempt;
+  });
+}

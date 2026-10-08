@@ -3,8 +3,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { OrpheInsole } from '../../src/compat/orphe-insole.ts';
-import { OrpheInsoleSimulator } from '../../src/compat/insole-simulator.ts';
+import { OrpheCoreInsole } from '../../src/device/orphe-core-insole.ts';
+import { insoleProfile } from '../../src/profiles/insole.ts';
 import {
   buildInsoleToolkit,
   getInsoleToolkitSession,
@@ -21,8 +21,14 @@ installDom();
 function setup(id = 0, options: Parameters<typeof buildInsoleToolkit>[3] = {}) {
   document.body.innerHTML = '<div id="toolkit"></div>';
   const bluetooth = new MockBluetooth();
-  const insole = new OrpheInsole(id, { bluetooth, storage: new MemoryStorage(), wait: async () => {} });
-  insole.onError = () => {};
+  const insole = new OrpheCoreInsole({
+    profile: insoleProfile({ timeSyncSamples: 1, pressureCalibration: { fetch: false } }),
+    id,
+    bluetooth,
+    storage: new MemoryStorage(),
+    wait: async () => {},
+    events: { onError: () => {} },
+  });
   insoles[id] = insole;
   buildInsoleToolkit(document.getElementById('toolkit')!, `INSOLE ${id}`, id, { onError() {}, ...options });
   const input = document.getElementById(`switch_ble${id}`) as HTMLInputElement;
@@ -60,12 +66,12 @@ test('profile を渡すと初期設定がそのプロファイルになる', () 
   assert.equal((document.getElementById('select_streaming_mode0') as HTMLSelectElement).value, '3');
 });
 
-test('トグル ON でセッション経由で接続し、左右バッジと周波数を更新する。利用者の gotBLEFrequency も呼ぶ', async () => {
+test('トグル ON でセッション経由で接続し、左右バッジと周波数を更新する。利用者の on("ble_frequency") も呼ぶ', async () => {
   const { insole, bluetooth, input, ui, session } = setup();
   const { device } = mockInsoleDevice();
   bluetooth.chooserQueue.push(device);
   const frequencies: number[] = [];
-  insole.gotBLEFrequency = (freq) => { frequencies.push(freq); };
+  insole.on('ble_frequency', (freq) => { frequencies.push(freq); });
 
   input.checked = true;
   await toggleInsoleModule(input, { autoReconnect: false });
@@ -75,7 +81,7 @@ test('トグル ON でセッション経由で接続し、左右バッジと周�
   assert.equal(document.getElementById('lr_badge0')!.innerText, 'R');
   assert.equal(document.getElementById('toolkit_mode_status0')!.innerText, 'Active: Realtime Raw Data');
 
-  insole.gotBLEFrequency(50.4);
+  insole.emitter.emit('SENSOR_VALUES', [{ ble_frequency: 50.4 }]);
   assert.equal(document.getElementById('freq0')!.innerHTML, '50 Hz');
   assert.deepEqual(frequencies, [50.4]);
 
@@ -101,9 +107,9 @@ test('chooser をキャンセルしたらトグルを戻す', async () => {
 
 test('simulator: true でスロットをシミュレータに差し替え、実機なしで接続できる', async () => {
   document.body.innerHTML = '<div id="toolkit"></div>';
-  insoles[1] = new OrpheInsole(1, { bluetooth: new MockBluetooth(), storage: new MemoryStorage() });
+  const real = insoles[1];
   buildInsoleToolkit(document.getElementById('toolkit')!, 'SIM', 1, { simulator: true, onError() {} });
-  assert.ok(insoles[1] instanceof OrpheInsoleSimulator);
+  assert.notEqual(insoles[1], real);
   const session = getInsoleToolkitSession(1)!;
   assert.equal(session.supportsFifo, false, 'シミュレータでは FIFO を選べない');
 
@@ -112,6 +118,12 @@ test('simulator: true でスロットをシミュレータに差し替え、実�
   await toggleInsoleModule(input, {});
   assert.equal(session.connected, true);
   assert.equal(document.getElementById('ui1')!.style.visibility, 'visible');
+
+  assert.equal(insoles[1]!.transport.device?.name, 'INS-SIM-1');
+  const presses: number[][] = [];
+  insoles[1]!.on('press', (press) => presses.push(press.values));
+  await new Promise(resolve => setTimeout(resolve, 60));
+  assert.ok(presses.length > 0, 'シミュレータの圧力が on() に届く');
 
   input.checked = false;
   await toggleInsoleModule(input, {});
