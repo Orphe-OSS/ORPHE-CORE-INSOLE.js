@@ -7,7 +7,11 @@
 
 // ── デバイス（ファサード） ────────────────────────────────────────
 export { OrpheCoreInsole } from './device/orphe-core-insole.ts';
-export type { OrpheCoreInsoleOptions } from './device/orphe-core-insole.ts';
+export type { LifecycleEventName, OrpheCoreInsoleOptions } from './device/orphe-core-insole.ts';
+export type { SharedBridgeOptions, SharedBridgeRole } from './device/shared-bridge.ts';
+export { decodeInsoleAdvertisement } from './protocol/advertisement.ts';
+export type { BleAdvertisingEvent, InsoleAdvertisementStatus } from './protocol/advertisement.ts';
+export { DEVICE_INFORMATION_OPCODE } from './protocol/commands.ts';
 export type {
   BeginContext,
   BeginOptions,
@@ -28,11 +32,20 @@ export {
   CORE_GYRO_RANGES,
   CORE_NOTIFICATION_TYPES,
   CoreProfile,
+  coreCommands,
   coreProfile,
   coreRequestDeviceOptions,
+  decodeCoreDeviceInformation,
+  decodeCoreStepAnalysis,
+  encodeCoreDeviceInformation,
+  parseCoreSensorValues,
 } from './profiles/core.ts';
 export type {
+  CoreCommands,
   CoreDeviceInformation,
+  CoreDeviceSettings,
+  CoreParseOptions,
+  CoreStepAnalysisPacket,
   CoreGaitPayload,
   CoreProfileOptions,
   CorePronationPayload,
@@ -52,11 +65,17 @@ export {
   INSOLE_GYRO_DPS_PER_LSB_PER_RANGE,
   INSOLE_GYRO_RANGES,
   InsoleProfile,
+  decodeInsoleDeviceInformation,
+  insoleCommands,
   insoleProfile,
   insoleRequestDeviceOptions,
+  parseInsoleSensorValues,
 } from './profiles/insole.ts';
 export type {
+  InsoleCommands,
   InsoleDeviceInformation,
+  InsoleParseOptions,
+  InsoleSensorPacket,
   InsoleParsedSample,
   InsolePress,
   InsoleProfileOptions,
@@ -82,7 +101,7 @@ export type { PressureCalibration } from './protocol/pressure-calibration.ts';
 
 // ── プロファイル（自動判別） ──────────────────────────────────────
 export { AutoProfile, autoProfile, detectDeviceKind } from './profiles/auto.ts';
-export type { AutoProfileOptions, AutoSensorFields, DeviceKind } from './profiles/auto.ts';
+export type { AutoCommands, AutoProfileOptions, AutoSensorFields, DeviceKind } from './profiles/auto.ts';
 
 // ── FIFO 収録（ロスレス） ─────────────────────────────────────────
 export { FifoRecorder } from './fifo/recorder.ts';
@@ -99,7 +118,7 @@ export type {
 } from './fifo/recorder.ts';
 export type { FifoPacket, FifoSample } from './fifo/protocol.ts';
 export type { FifoLossEvent, FifoLossReason } from './fifo/state.ts';
-export { pressureToN } from './fifo/protocol.ts';
+export { pressureToN, serialDistance } from './fifo/protocol.ts';
 
 // ── 歩容解析（INSOLE） ────────────────────────────────────────────
 export { InsoleGait } from './gait/analyzer.ts';
@@ -120,6 +139,7 @@ export type { CharacteristicId } from './protocol/uuids.ts';
 export { readDateTime, syncDeviceTime, writeDateTime } from './device/time-sync.ts';
 export type { DeviceDateTime, SyncTimeOptions, SyncTimeResult } from './device/time-sync.ts';
 export { quatToEuler } from './protocol/geometry.ts';
+export { decodeDateTime, encodeDateTime } from './protocol/datetime.ts';
 export type { EulerAngles, Quat, Vec3 } from './protocol/geometry.ts';
 
 // ── BLE トランスポート ────────────────────────────────────────────
@@ -154,7 +174,7 @@ export type {
 export { Orphe } from './compat/orphe-core.ts';
 export type { CoreBeginOptions, LegacyCoreDeviceInformation, OrpheInjections } from './compat/orphe-core.ts';
 export { OrpheInsole } from './compat/orphe-insole.ts';
-export type { InsoleAdvertisementStatus, InsoleBeginOptions, InsoleSensorDataEvent } from './compat/orphe-insole.ts';
+export type { InsoleBeginOptions, InsoleSensorDataEvent } from './compat/orphe-insole.ts';
 export { OrpheInsoleFifo, OrpheInsoleGait } from './compat/insole-modules.ts';
 export { LegacyDevice } from './compat/legacy-device.ts';
 export type {
@@ -166,6 +186,11 @@ export type {
 } from './compat/legacy-device.ts';
 
 export { OrpheInsoleSimulator } from './compat/insole-simulator.ts';
+export { createInsoleSimulator, insoleSimulatorBluetooth } from './simulator/insole-simulator.ts';
+export type { InsoleSimulatorDevice, InsoleSimulatorOptions } from './simulator/insole-simulator.ts';
+export type { InsoleSimulatorPreset } from './simulator/synthetic.ts';
+export { encodeInsoleSensorValues } from './simulator/insole-packet.ts';
+export type { InsolePacketFrame, InsolePacketInput } from './simulator/insole-packet.ts';
 export type {
   InsoleSimulatorBeginOptions,
   InsoleSimulatorDeviceInformation,
@@ -196,6 +221,7 @@ export {
   INSOLE_TOOLKIT_PROFILES,
   INSOLE_TOOLKIT_STEP_UNSUPPORTED_FW,
   InsoleToolkitSession,
+  insoleFirmwareVersion,
   insoleToolkitMeasurementToCSV,
   normalizeInsoleSensorDataMode,
   normalizeInsoleToolkitConfiguration,
@@ -208,6 +234,7 @@ export type {
   InsoleMeasurementSnapshot,
   InsoleSensorDataMode,
   InsoleSessionAdapters,
+  InsoleSessionCoreDevice,
   InsoleSessionDevice,
   InsoleSessionFifo,
   InsoleSessionGait,

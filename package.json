@@ -1,8 +1,16 @@
 {
   "name": "orphe-core-insole",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "description": "Shared BLE transport layer for ORPHE CORE / ORPHE INSOLE JavaScript SDKs",
+  "homepage": "https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/issues"
+  },
   "type": "module",
   "scripts": {
     "test": "node --experimental-strip-types --no-warnings=ExperimentalWarning --test 'tests/**/*.test.ts'",
