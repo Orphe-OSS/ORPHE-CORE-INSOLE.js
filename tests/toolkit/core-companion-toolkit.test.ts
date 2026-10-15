@@ -3,7 +3,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Orphe } from '../../src/compat/orphe-core.ts';
+import { OrpheCoreInsole } from '../../src/device/orphe-core-insole.ts';
+import { coreProfile } from '../../src/profiles/core.ts';
 import { ORPHE_UUID } from '../../src/protocol/uuids.ts';
 import {
   buildCoreCompanionToolkit,
@@ -22,13 +23,14 @@ installDom();
 function setup(options: Parameters<typeof buildCoreCompanionToolkit>[2] = {}) {
   document.body.innerHTML = '<div id="toolkit"></div>';
   const bluetooth = new MockBluetooth();
-  const core = new Orphe(0, {
+  const core = new OrpheCoreInsole({
+    profile: coreProfile({ namePrefix: 'CR-', settleMs: 0, timeSyncSamples: 1, acceptExtendedSensorValues: true }),
+    id: 0,
     bluetooth,
     storage: new MemoryStorage(),
     wait: async () => {},
-    profile: { settleMs: 0, timeSyncSamples: 1, acceptExtendedSensorValues: true },
+    events: { onError: () => {} },
   });
-  core.onError = () => {};
   setOrpheCore(core);
   buildCoreCompanionToolkit(document.getElementById('toolkit')!, 'CORE', options);
   const input = document.getElementById('switch_core0') as HTMLInputElement;
@@ -49,7 +51,7 @@ test('トグル ON で指定の通知・レンジで接続し、OFF で切断す
   input.checked = true;
   await toggleCoreCompanion(input);
   assert.equal(core.isConnected(), true);
-  assert.equal(core.notification_type, 'SENSOR_VALUES');
+  assert.equal(core.lastBeginType, 'SENSOR_VALUES');
   assert.equal(ui.style.visibility, 'visible');
   const written = first.deviceInfo.written[0]!;
   assert.deepEqual([written[7], written[8]], [2, 2], 'range は index に変換して書き込む');
@@ -64,7 +66,7 @@ test('トグル ON で指定の通知・レンジで接続し、OFF で切断す
   bluetooth.chooserQueue.push(second.device);
   input.checked = true;
   await toggleCoreCompanion(input);
-  assert.equal(core.notification_type, 'STEP_ANALYSIS');
+  assert.equal(core.lastBeginType, 'STEP_ANALYSIS');
   assert.equal(bluetooth.requestDeviceCalls.length, 2, '毎回 chooser を出す');
   core.stop();
 });
@@ -92,7 +94,7 @@ test('header 50 の 104 バイト版パケットも受け取る', async () => {
   await toggleCoreCompanion(input);
 
   let accs = 0;
-  core.gotAcc = () => { accs++; };
+  core.on('acc', () => { accs++; });
   const packet = new DataView(new ArrayBuffer(104));
   packet.setUint8(0, 50);
   packet.setUint16(1, 1);

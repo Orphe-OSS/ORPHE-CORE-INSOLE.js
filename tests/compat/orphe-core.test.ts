@@ -6,7 +6,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { Orphe } from '../../src/compat/orphe-core.ts';
 import { ORPHE_UUID } from '../../src/protocol/uuids.ts';
-import type { BridgeChannel, BridgeEnvironment } from '../../src/bridge.ts';
+import type { BridgeEnvironment } from '../../src/bridge.ts';
+import { MockTabWorld } from '../helpers/bridge-env.ts';
 import { MemoryStorage, MockBluetooth, waitFor } from '../helpers/mock-bluetooth.ts';
 import { mockCoreDevice } from '../helpers/core-device.ts';
 
@@ -173,53 +174,6 @@ test('自動再接続: 切断後に同じ種別で再接続し、notify が再�
 });
 
 // ─── タブ間共有 ──────────────────────────────────────────────
-
-/** 同一オリジンの複数タブを模した環境。storage とチャネルを共有する */
-class MockTabWorld {
-  readonly storage = new MemoryStorage();
-  private readonly channels = new Map<string, Set<FakeChannel>>();
-  private readonly windowListeners = new Map<string, Set<(event: unknown) => void>>();
-
-  createEnvironment(): BridgeEnvironment {
-    const world = this;
-    return {
-      storage: this.storage,
-      createChannel(name) { return new FakeChannel(world, name); },
-      addWindowListener(type, listener) {
-        if (!world.windowListeners.has(type)) world.windowListeners.set(type, new Set());
-        world.windowListeners.get(type)!.add(listener);
-      },
-      removeWindowListener(type, listener) { world.windowListeners.get(type)?.delete(listener); },
-    };
-  }
-
-  channelBus(name: string): Set<FakeChannel> {
-    if (!this.channels.has(name)) this.channels.set(name, new Set());
-    return this.channels.get(name)!;
-  }
-}
-
-class FakeChannel implements BridgeChannel {
-  onmessage: ((event: { data: unknown }) => void) | null = null;
-  closed = false;
-  private readonly world: MockTabWorld;
-  private readonly name: string;
-  constructor(world: MockTabWorld, name: string) {
-    this.world = world;
-    this.name = name;
-    world.channelBus(name).add(this);
-  }
-  postMessage(message: unknown): void {
-    if (this.closed) return;
-    for (const peer of this.world.channelBus(this.name)) {
-      if (peer !== this && !peer.closed) peer.onmessage?.({ data: message });
-    }
-  }
-  close(): void {
-    this.closed = true;
-    this.world.channelBus(this.name).delete(this);
-  }
-}
 
 test('タブ間共有は既定で無効（別タブが接続中でも自分で接続する）', async () => {
   const world = new MockTabWorld();

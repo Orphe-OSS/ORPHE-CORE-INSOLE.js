@@ -1,10 +1,15 @@
 /**
- * InsoleToolkitSession — 1 台の OrpheInsole に対する通知と FIFO / Gait のライフサイクルを直列化する。
+ * InsoleToolkitSession — 1 台の INSOLE（OrpheCoreInsole）に対する通知と FIFO / Gait のライフサイクルを直列化する。
  *
  * 画面を持たない計測セッション管理。InsoleToolkit の設定モーダルもこのセッション経由で操作するため、
  * 独自の記録 UI から使っても通知の所有状態を共有できる。
  * UI からの高速な切替でも sink の二重所有や FIFO drain 中の reset を起こさない。
  */
+
+import { parseInsoleSensorValues } from '../profiles/insole.ts';
+import type { InsoleParseOptions } from '../profiles/insole.ts';
+import { FifoRecorder } from '../fifo/recorder.ts';
+import { InsoleGait } from '../gait/analyzer.ts';
 
 /** Toolkit の計測設定で使うエラー（code で原因を判別する） */
 export interface InsoleToolkitError extends Error {
@@ -57,7 +62,11 @@ export type ResolvedInsoleToolkitProfile =
   | InsoleToolkitProfile
   | (InsoleToolkitConfiguration & { id: string; label: string });
 
-/** セッションが操作するデバイス（OrpheInsole / OrpheInsoleSimulator） */
+/**
+ * セッションが操作するデバイスの最小形。
+ * OrpheCoreInsole（insoleProfile / createInsoleSimulator）を渡すとこの形に変換して使う。
+ * 互換の OrpheInsole / OrpheInsoleSimulator もそのまま渡せる。
+ */
 export interface InsoleSessionDevice {
   id?: number;
   streaming_mode?: number | undefined;
@@ -76,6 +85,69 @@ export interface InsoleSessionDevice {
 /** addSensorDataListener() から届くイベント（計測記録に使う部分） */
 export interface InsoleSessionSensorDataEvent {
   packet?: { serial_number?: number; samples?: unknown[] } | null;
+}
+
+/** OrpheCoreInsole のうちセッションが使う部分 */
+export interface InsoleSessionCoreDevice {
+  readonly id: number;
+  readonly profile: { streaming_mode?: number | null; sensorParseOptions?(): InsoleParseOptions };
+  readonly transport: {
+    startNotify(uuid: string): Promise<unknown>;
+    stopNotify(uuid: string): Promise<unknown>;
+    addAfterReconnectSuccessHook(hook: () => unknown): () => void;
+  };
+  readonly commands: unknown;
+  readonly firmware?: { name?: string | null } | null;
+  readonly lastAdvertisement?: unknown;
+  begin(type: string, options: Record<string, unknown>): Promise<unknown>;
+  reset(): void;
+  isConnected(): boolean;
+  onRaw(listener: (uuid: string, data: DataView) => void): () => void;
+}
+
+/** リアルタイム配信のヘッダ（FIFO の要求応答パケットは記録しない） */
+const REALTIME_HEADERS = new Set([50, 55, 56]);
+
+/**
+ * INSOLE の FW バージョン文字列。アドバタイズ（watchAdvertisements）で受けていればその版、
+ * なければ FW 情報のビルド名。どちらも無ければ null。
+ */
+export function insoleFirmwareVersion(device: {
+  readonly firmware?: { name?: string | null } | null;
+  readonly lastAdvertisement?: unknown;
+}): string | null {
+  const status = (device.lastAdvertisement as { status?: { version?: string } } | null | undefined)?.status;
+  return status?.version ?? device.firmware?.name ?? null;
+}
+
+function isCoreDevice(device: InsoleSessionDevice | InsoleSessionCoreDevice): device is InsoleSessionCoreDevice {
+  const candidate = device as Partial<InsoleSessionCoreDevice>;
+  return typeof candidate.onRaw === 'function' && !!candidate.transport && 'commands' in candidate;
+}
+
+/** OrpheCoreInsole をセッションの操作形に変換する（互換クラスはそのまま返す） */
+function toSessionDevice(device: InsoleSessionDevice | InsoleSessionCoreDevice): InsoleSessionDevice {
+  if (!isCoreDevice(device)) return device;
+  const commands = () => device.commands as { setDataStreamingMode(mode: number): Promise<unknown> };
+  return {
+    get id() { return device.id; },
+    get streaming_mode() { return device.profile.streaming_mode ?? undefined; },
+    begin: (type, options) => device.begin(type, options),
+    reset: () => device.reset(),
+    isConnected: () => device.isConnected(),
+    setDataStreamingMode: (mode) => commands().setDataStreamingMode(mode),
+    startNotify: (uuid) => device.transport.startNotify(uuid),
+    // 停止の失敗は onError に報告済み。切断済みでも状態遷移を止めない
+    stopNotify: (uuid) => device.transport.stopNotify(uuid).catch(() => undefined),
+    addSensorDataListener: (listener) => device.onRaw((uuid, data) => {
+      if (uuid !== 'SENSOR_VALUES') return;
+      const packet = parseInsoleSensorValues(data, device.profile.sensorParseOptions?.());
+      if (!packet || !REALTIME_HEADERS.has(packet.header)) return;
+      listener({ packet });
+    }),
+    getFirmwareVersion: async () => insoleFirmwareVersion(device),
+    addAfterReconnectSuccessHook: (hook) => device.transport.addAfterReconnectSuccessHook(hook),
+  };
 }
 
 type Callback = ((...args: never[]) => void) | null | undefined;
@@ -489,8 +561,12 @@ export class InsoleToolkitSession {
   private warnedStepUnsupportedFirmware = false;
   private readonly stateListeners = new Set<(session: InsoleToolkitSession) => void>();
 
-  constructor(insole: InsoleSessionDevice, options: InsoleToolkitSessionOptions = {}, adapters: InsoleSessionAdapters = {}) {
-    this.insole = insole;
+  constructor(
+    insole: InsoleSessionDevice | InsoleSessionCoreDevice,
+    options: InsoleToolkitSessionOptions = {},
+    adapters: InsoleSessionAdapters = {},
+  ) {
+    this.insole = toSessionDevice(insole);
     this.options = options;
     const initialProfile = options.profile ? resolveInsoleToolkitProfile(options.profile) : null;
     const initialConfig = normalizeInsoleToolkitConfiguration(
@@ -506,8 +582,12 @@ export class InsoleToolkitSession {
     this.outputs = initialConfig.outputs;
     this.profileId = initialProfile?.id || insoleToolkitProfileIdFor(initialConfig);
 
-    const FifoClass = adapters.FifoClass as (new (insole: unknown, options: unknown) => InsoleSessionFifo) | null | undefined;
-    const GaitClass = adapters.GaitClass as (new (insole: unknown, options: unknown) => InsoleSessionGait) | null | undefined;
+    // OrpheCoreInsole なら FIFO / 歩容解析は FifoRecorder / InsoleGait を既定にする
+    const defaults: InsoleSessionAdapters = isCoreDevice(insole)
+      ? { FifoClass: FifoRecorder as unknown as ModuleConstructor<InsoleSessionFifo>, GaitClass: InsoleGait as unknown as ModuleConstructor<InsoleSessionGait> }
+      : {};
+    const FifoClass = (adapters.FifoClass === undefined ? defaults.FifoClass : adapters.FifoClass) as (new (insole: unknown, options: unknown) => InsoleSessionFifo) | null | undefined;
+    const GaitClass = (adapters.GaitClass === undefined ? defaults.GaitClass : adapters.GaitClass) as (new (insole: unknown, options: unknown) => InsoleSessionGait) | null | undefined;
     const fifoOptions = insoleToolkitModuleOptions(options, 'fifo');
     const gaitOptions = insoleToolkitModuleOptions(options, 'gait');
     this.fifoCallbacks = fifoOptions;

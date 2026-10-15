@@ -40,7 +40,7 @@ export interface LegacyReconnectSuccessInfo { attempt: number; maxAttempts: numb
 export interface LegacyReconnectFailedInfo { maxAttempts: number; elapsedMs: number; error: unknown }
 
 /** テスト・非ブラウザ環境向けの注入点 */
-export type LegacyDeviceInjections = Pick<OrpheCoreInsoleOptions, 'bluetooth' | 'storage' | 'wait' | 'clock'>;
+export type LegacyDeviceInjections = Pick<OrpheCoreInsoleOptions, 'bluetooth' | 'storage' | 'wait' | 'clock' | 'sharedBridge'>;
 
 const DEFAULT_TIME_SYNC_SAMPLES = 3;
 

@@ -3,11 +3,13 @@
  * CoreToolkit — ORPHE CORE の接続 GUI（Bootstrap 5 + bootstrap-icons 前提）。
  *
  * buildCoreToolkit() を呼ぶだけで、接続トグル・周波数・バッテリー・LED・設定モーダルを生成する。
- * 操作対象は cores（= bles）[0] / [1]。
+ * 操作対象は cores（= bles）[0] / [1]。要素は OrpheCoreInsole（coreProfile）なので、
+ * `cores[0].on('acc', …)` / `cores[0].onEvent('onConnect', …)` / `cores[0].commands.setLED(…)` で使う。
  */
-import { BleSharedBridge, Orphe } from '../index.ts';
-import type { CoreBeginOptions } from '../index.ts';
+import { BleSharedBridge, CORE_ACC_RANGES, CORE_GYRO_RANGES, OrpheCoreInsole, coreProfile } from '../index.ts';
+import type { BeginOptions, CoreCommands, CoreProfile, CoreSensorFields } from '../index.ts';
 import { buildElement, byId } from './dom.ts';
+import { duplicateDeviceGuard } from './device-guard.ts';
 
 /** buildCoreToolkit() のオプション（残りのキーは begin() へ透過する） */
 export interface CoreToolkitOptions extends Record<string, unknown> {
@@ -33,20 +35,52 @@ export interface CoreToolkitGuardOptions {
   disabledTitle?: string;
 }
 
+/** CoreToolkit が操作する ORPHE CORE */
+export type ToolkitCore = OrpheCoreInsole<CoreSensorFields, CoreCommands, CoreProfile>;
+
+/** 別スロットで使用中のデバイスを拒否するか（スロットごと。buildCoreToolkit の rejectDuplicateDevices） */
+const rejectDuplicates = new Map<number, boolean>();
+
+function createToolkitCore(id: number): ToolkitCore {
+  return new OrpheCoreInsole({
+    // サービス UUID のフィルタに一致しない環境でも、名前で CORE を拾えるようにする
+    profile: coreProfile({ namePrefix: 'CR-' }),
+    id,
+    deviceGuard: duplicateDeviceGuard(() => cores, id, 'ORPHE CORE', () => rejectDuplicates.get(id) !== false),
+    events: { onError: (error) => console.error('CoreToolkit:', error) },
+  });
+}
+
 /** 操作対象の ORPHE CORE（最大 2 台） */
-export const cores: Orphe[] = [new Orphe(0), new Orphe(1)];
+export const cores: ToolkitCore[] = [createToolkitCore(0), createToolkitCore(1)];
 
 /** cores の別名 */
 export const bles = cores;
 
 const toolkitOptions = new Map<number, CoreToolkitOptions>();
 const connecting = new Set<number>();
+/** UI 更新用の購読を張ったスロット（二重登録しない） */
+const wiredCores = new WeakSet<ToolkitCore>();
 
-function beginOptionsFor(options: CoreToolkitOptions): CoreBeginOptions {
-  return { ...options, useSharedBridge: options.useSharedBridge !== false } as CoreBeginOptions;
+function beginOptionsFor(options: CoreToolkitOptions): BeginOptions {
+  const { range, rejectDuplicateDevices: _reject, tryRememberedBeforePicker: _try, ...rest } = options;
+  const beginOptions: BeginOptions = { ...rest, useSharedBridge: options.useSharedBridge !== false };
+  if (range && range.acc !== -1 && range.gyro !== -1) beginOptions.range = range;
+  return beginOptions;
 }
 
-function core(no: number): Orphe {
+/** 周波数表示の購読をスロットごとに 1 回だけ張る（タブ間共有の Secondary は「共有」表示のまま） */
+function wireToolkitUi(ble: ToolkitCore): void {
+  if (wiredCores.has(ble)) return;
+  wiredCores.add(ble);
+  ble.on('ble_frequency', (freq) => {
+    if (ble.sharedBridgeRole === 'secondary') return;
+    const el = byId(`freq${ble.id}`);
+    if (el) el.innerHTML = `${Math.floor(freq)} Hz`;
+  });
+}
+
+function core(no: number): ToolkitCore {
   const target = cores[no];
   if (!target) throw new RangeError(`CoreToolkit: core_id ${no} is out of range.`);
   return target;
@@ -260,14 +294,15 @@ export async function toggleCoreModule(dom: HTMLInputElement, options: CoreToolk
     const connectOptions = beginOptionsFor(options);
     const hasRemotePrimary = connectOptions.useSharedBridge === true
       && new BleSharedBridge(number).isRemotePrimaryAvailable();
-    const hasRememberedDevice = !!ble.getLastBluetoothDeviceInfo();
+    const hasRememberedDevice = !!ble.transport.rememberedDevice();
     const shouldTryRememberedFirst = !!options.forceDeviceSelection
       && options.tryRememberedBeforePicker === true
       && (hasRemotePrimary || hasRememberedDevice);
     const firstBeginOptions = shouldTryRememberedFirst
       ? { ...connectOptions, forceDeviceSelection: false }
       : connectOptions;
-    ble.rejectDuplicateDevices = options.rejectDuplicateDevices !== false;
+    rejectDuplicates.set(number, options.rejectDuplicateDevices !== false);
+    wireToolkitUi(ble);
 
     connecting.add(number);
     dom.disabled = true;
@@ -277,7 +312,7 @@ export async function toggleCoreModule(dom: HTMLInputElement, options: CoreToolk
       } catch (error) {
         // 記憶デバイスを先に試して失敗したときだけ、記憶を捨てて chooser で選び直す
         if (!shouldTryRememberedFirst || !hasRememberedDevice || hasRemotePrimary) throw error;
-        ble.forgetLastBluetoothDevice();
+        ble.transport.forgetRememberedDevice();
         await ble.begin(notification, connectOptions);
       }
     } catch (error) {
@@ -285,7 +320,7 @@ export async function toggleCoreModule(dom: HTMLInputElement, options: CoreToolk
       if (sw) sw.checked = false;
       const ui = byId(`ui${number}`);
       if (ui) ui.style.visibility = 'hidden';
-      ble.onError(error);
+      ble.reportError(error);
       return;
     } finally {
       connecting.delete(number);
@@ -295,7 +330,7 @@ export async function toggleCoreModule(dom: HTMLInputElement, options: CoreToolk
     const ui = byId(`ui${number}`);
     if (ui) ui.style.visibility = 'visible';
 
-    if (ble.isBridgeSecondary) {
+    if (ble.sharedBridgeRole === 'secondary') {
       const freqEl = byId(`icon_bluetooth${number}`);
       if (freqEl) {
         freqEl.innerHTML = `<i class="bi bi-broadcast position-relative">
@@ -305,20 +340,14 @@ export async function toggleCoreModule(dom: HTMLInputElement, options: CoreToolk
                 </i>`;
         freqEl.title = '別タブのBLE接続を共有中';
       }
-      // Primary が切れたら UI を戻す（利用者の onDisconnect は残す）
-      const userOnDisconnect = ble.onDisconnect;
-      ble.onDisconnect = function (this: Orphe, ...args: Parameters<Orphe['onDisconnect']>) {
-        if (typeof userOnDisconnect === 'function') userOnDisconnect.apply(this, args);
+      // Primary が切れたら UI を戻す（1 回だけ）
+      const off = ble.onEvent('onDisconnect', () => {
+        off();
         const sw = byId<HTMLInputElement>(`switch_ble${number}`);
         if (sw) sw.checked = false;
         const uiEl = byId(`ui${number}`);
         if (uiEl) uiEl.style.visibility = 'hidden';
-      };
-    } else {
-      ble.gotBLEFrequency = function (this: Orphe, freq: number) {
-        const el = byId(`freq${this.id}`);
-        if (el) el.innerHTML = `${Math.floor(freq)} Hz`;
-      };
+      });
     }
   } else {
     ble.reset();
@@ -333,18 +362,20 @@ export async function switchCoreBluetoothDevice(no: number, options: CoreToolkit
   const sw = byId<HTMLInputElement>(`switch_ble${no}`);
   const uiEl = byId(`ui${no}`);
   const notification = sw?.getAttribute('notification') || 'STEP_ANALYSIS_AND_SENSOR_VALUES';
-  ble.rejectDuplicateDevices = options.rejectDuplicateDevices !== false;
+  rejectDuplicates.set(no, options.rejectDuplicateDevices !== false);
+  wireToolkitUi(ble);
 
   try {
     if (uiEl) uiEl.style.visibility = 'hidden';
-    await ble.selectBluetoothDevice('DEVICE_INFORMATION');
+    ble.releaseSharedBridge();
+    await ble.transport.selectDevice();
     const ret = await ble.begin(notification, beginOptionsFor(options));
     if (sw) sw.checked = !!ret;
     if (ret && uiEl) uiEl.style.visibility = 'visible';
   } catch (error) {
     if (sw) sw.checked = false;
     if (uiEl) uiEl.style.visibility = 'hidden';
-    ble.onError(error);
+    ble.reportError(error);
   }
 }
 
@@ -357,52 +388,50 @@ export function changeNotify(no: number, dom: HTMLSelectElement): void {
   const options = beginOptionsFor(toolkitOptions.get(no) || {});
   const restart = () => {
     setTimeout(function () {
-      ble.begin(dom.value, options).catch((error: unknown) => ble.onError(error));
+      ble.begin(dom.value, options).catch((error: unknown) => ble.reportError(error));
     }, 500);
   };
-  if (ble.notification_type == 'STEP_ANALYSIS') {
-    void ble.stopNotify('STEP_ANALYSIS').then(restart);
-  } else if (ble.notification_type == 'SENSOR_VALUES') {
-    void ble.stopNotify('SENSOR_VALUES').then(restart);
-  } else if (ble.notification_type == 'STEP_ANALYSIS_AND_SENSOR_VALUES') {
-    void ble.stopNotify('STEP_ANALYSIS').then(() => ble.stopNotify('SENSOR_VALUES')).then(restart);
+  // 停止の失敗は onError に報告済み。切断済みでも切替は続ける
+  const stop = (uuid: string) => ble.transport.stopNotify(uuid).catch(() => undefined);
+  const current = ble.lastBeginType;
+  if (current == 'STEP_ANALYSIS') {
+    void stop('STEP_ANALYSIS').then(restart);
+  } else if (current == 'SENSOR_VALUES') {
+    void stop('SENSOR_VALUES').then(restart);
+  } else if (current == 'STEP_ANALYSIS_AND_SENSOR_VALUES') {
+    void stop('STEP_ANALYSIS').then(() => stop('SENSOR_VALUES')).then(restart);
   }
 }
 
-/** 加速度センサのレンジを変更する */
+/** 加速度センサのレンジを変更する（select の値は index 0..3） */
 export async function changeAccRange(no: number, dom: HTMLSelectElement): Promise<void> {
-  const obj = await core(no).getDeviceInformation();
-  obj.range.acc = parseInt(dom.value);
-  obj.lr = 0xFF;
-  await core(no).setDeviceInformation(obj);
+  const commands = core(no).commands;
+  await commands.readDeviceInformation();
+  await commands.setRange({ acc: CORE_ACC_RANGES[parseInt(dom.value)] });
 }
 
-/** ジャイロセンサのレンジを変更する */
+/** ジャイロセンサのレンジを変更する（select の値は index 0..3） */
 export async function changeGryoRange(no: number, dom: HTMLSelectElement): Promise<void> {
-  const obj = await core(no).getDeviceInformation();
-  obj.range.gyro = parseInt(dom.value);
-  obj.lr = 0xFF;
-  await core(no).setDeviceInformation(obj);
+  const commands = core(no).commands;
+  await commands.readDeviceInformation();
+  await commands.setRange({ gyro: CORE_GYRO_RANGES[parseInt(dom.value)] });
 }
 
 /** LED の明るさを変更する */
 export async function changeLEDBrightness(no: number, dom: HTMLInputElement): Promise<void> {
-  const obj = await core(no).getDeviceInformation();
-  obj.led_brightness = parseInt(dom.value);
-  obj.lr = 0xFF;
-  await core(no).setDeviceInformation(obj);
+  const commands = core(no).commands;
+  await commands.readDeviceInformation();
+  await commands.setLEDBrightness(parseInt(dom.value));
 }
 
 /** 取り付け位置（左右・足背/足底）を変更する */
 export async function changeLR(no: number, dom: HTMLSelectElement): Promise<void> {
-  const obj = await core(no).getDeviceInformation();
-  obj.lr = parseInt(dom.value);
-  await core(no).setDeviceInformation(obj);
+  await core(no).commands.setMountPosition(parseInt(dom.value) as 0 | 1 | 2 | 3);
 }
 
 /** 設定モーダルの表示をデバイスの現在値に合わせる */
 export async function updateModalParameters(no: number): Promise<void> {
-  const obj = await core(no).getDeviceInformation();
+  const obj = await core(no).commands.readDeviceInformation();
 
   const acc = byId<HTMLSelectElement>(`select_acc${no}`);
   const accOption = acc?.options[obj.range.acc];
@@ -422,14 +451,15 @@ export async function updateModalParameters(no: number): Promise<void> {
 
 /** 姿勢と歩行解析をリセットする */
 export function resetCoreModule(id: number): void {
-  void core(id).resetMotionSensorAttitude();
-  void core(id).resetAnalysisLogs();
+  const target = core(id);
+  void target.commands.resetAttitude().catch((error: unknown) => target.reportError(error));
+  void target.commands.resetAnalysisLogs().catch((error: unknown) => target.reportError(error));
 }
 
 /** バッテリー残量（3 段階）に合わせてアイコンを更新する */
 export async function updateBatteryInfo(dom: Element): Promise<void> {
   const number = parseInt(dom.getAttribute('core_id') || '0');
-  const obj = await core(number).getDeviceInformation();
+  const obj = await core(number).commands.readDeviceInformation();
   let str_battery_status: string | undefined;
   if (obj.battery == 0) str_battery_status = 'empty';
   else if (obj.battery == 1) str_battery_status = 'normal';
@@ -456,11 +486,8 @@ export function toggleLED(dom: Element): void {
   if (number > 6) number = 0;
   const label = byId(`led_number${id}`);
   if (label) label.innerText = String(number);
-  if (number == 0) {
-    void core(id).setLED(0, 0);
-  } else {
-    void core(id).setLED(1, number);
-  }
+  const target = core(id);
+  void target.commands.setLED(number !== 0, number).catch((error: unknown) => target.reportError(error));
   dom.setAttribute('number', String(number));
 }
 

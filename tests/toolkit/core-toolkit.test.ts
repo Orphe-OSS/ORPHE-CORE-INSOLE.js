@@ -3,7 +3,8 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Orphe } from '../../src/compat/orphe-core.ts';
+import { OrpheCoreInsole } from '../../src/device/orphe-core-insole.ts';
+import { coreProfile } from '../../src/profiles/core.ts';
 import {
   buildCoreToolkit,
   changeAccRange,
@@ -26,14 +27,15 @@ const NO_SHARING = { useSharedBridge: false };
 function setup(id = 0) {
   document.body.innerHTML = '<div id="toolkit"></div><div id="message"></div>';
   const bluetooth = new MockBluetooth();
-  const core = new Orphe(id, {
+  const errors: unknown[] = [];
+  const core = new OrpheCoreInsole({
+    profile: coreProfile({ namePrefix: 'CR-', settleMs: 0, timeSyncSamples: 1 }),
+    id,
     bluetooth,
     storage: new MemoryStorage(),
     wait: async () => {},
-    profile: { settleMs: 0, timeSyncSamples: 1 },
+    events: { onError: (error) => { errors.push(error); } },
   });
-  const errors: unknown[] = [];
-  core.onError = (error) => { errors.push(error); };
   cores[id] = core;
   buildCoreToolkit(document.getElementById('toolkit')!, `CORE ${id}`, id);
   const input = document.getElementById(`switch_ble${id}`) as HTMLInputElement;
@@ -58,11 +60,11 @@ test('トグル ON で接続して UI を表示し、周波数を表示する。
   input.checked = true;
   await toggleCoreModule(input, { autoReconnect: true, range: { acc: -1, gyro: -1 }, useSharedBridge: false });
   assert.equal(core.isConnected(), true);
-  assert.equal(core.notification_type, 'STEP_ANALYSIS_AND_SENSOR_VALUES');
+  assert.equal(core.lastBeginType, 'STEP_ANALYSIS_AND_SENSOR_VALUES');
   assert.equal(ui.style.visibility, 'visible');
   assert.equal(input.disabled, false);
 
-  core.gotBLEFrequency(49.7);
+  core.emitter.emit('SENSOR_VALUES', [{ ble_frequency: 49.7 }]);
   assert.equal(document.getElementById('freq0')!.innerHTML, '49 Hz');
 
   input.checked = false;
@@ -88,7 +90,7 @@ test('tryRememberedBeforePicker: 記憶デバイスが見つからなければ c
   input.checked = true;
   await toggleCoreModule(input, NO_SHARING);
   core.stop();
-  assert.ok(core.getLastBluetoothDeviceInfo());
+  assert.ok(core.transport.rememberedDevice());
 
   // 記憶デバイスは getDevices() に無く、chooser では別のデバイスを選ぶ
   const other = mockCoreDevice();
@@ -96,7 +98,7 @@ test('tryRememberedBeforePicker: 記憶デバイスが見つからなければ c
   const before = bluetooth.requestDeviceCalls.length;
   input.checked = true;
   await toggleCoreModule(input, { ...NO_SHARING, forceDeviceSelection: true, tryRememberedBeforePicker: true });
-  assert.equal(core.bluetoothDevice, other.device);
+  assert.equal(core.transport.device, other.device);
   assert.equal(bluetooth.requestDeviceCalls.length, before + 1, 'chooser は選び直しの 1 回だけ');
 });
 
@@ -145,4 +147,22 @@ test('guardCoreToolkitBluetooth: Web Bluetooth が無ければトグルを無効
   const input = document.getElementById('switch_ble0') as HTMLInputElement;
   assert.equal(input.disabled, true);
   assert.match(document.getElementById('message')!.textContent ?? '', /Web Bluetooth is disabled/);
+});
+
+test('cores の要素は OrpheCoreInsole で、on() / onEvent() / commands を使える', async () => {
+  const { core, bluetooth, input } = setup();
+  const { device, sensor } = mockCoreDevice();
+  bluetooth.chooserQueue.push(device);
+  const connected: string[] = [];
+  core.onEvent('onConnect', (uuid) => connected.push(uuid));
+  let frequency = 0;
+  core.on('ble_frequency', (hz) => { frequency = hz; });
+  input.checked = true;
+  await toggleCoreModule(input, NO_SHARING);
+  assert.ok(connected.length > 0);
+  assert.equal(typeof core.commands.setLED, 'function');
+  core.emitter.emit('SENSOR_VALUES', [{ ble_frequency: 60 }]);
+  assert.equal(frequency, 60);
+  assert.equal(document.getElementById('freq0')!.innerHTML, '60 Hz');
+  void sensor;
 });

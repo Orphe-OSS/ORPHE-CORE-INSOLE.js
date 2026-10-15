@@ -5,9 +5,14 @@
  * 生成する CORE は orpheCore（insoles / cores とは独立したインスタンス）。
  * chooser は名前（既定 'CR-'）とサービス UUID のどちらでも CORE を拾い、
  * header 50 の 104 バイト版パケットも受け付ける。
+ * orpheCore は OrpheCoreInsole（coreProfile）なので、`orpheCore.on('converted_acc', …)` で使う。
  */
-import { Orphe } from '../index.ts';
+import { OrpheCoreInsole, coreProfile } from '../index.ts';
+import type { CoreCommands, CoreProfile, CoreSensorFields } from '../index.ts';
 import { buildElement, byId } from './dom.ts';
+
+/** CoreCompanionToolkit が操作する ORPHE CORE */
+export type CompanionCore = OrpheCoreInsole<CoreSensorFields, CoreCommands, CoreProfile>;
 
 /** buildCoreCompanionToolkit() のオプション */
 export interface CoreCompanionToolkitOptions {
@@ -24,14 +29,14 @@ export interface CoreCompanionToolkitOptions {
 }
 
 /** buildCoreCompanionToolkit() が生成した ORPHE CORE（未生成なら null） */
-export let orpheCore: Orphe | null = null;
+export let orpheCore: CompanionCore | null = null;
 
 let companionOptions: CoreCompanionToolkitOptions = {};
 let ledOn = false;
 
 /** CORE の SDK が使える状態か */
 export function isOrpheCoreSdkLoaded(): boolean {
-  return typeof Orphe === 'function';
+  return typeof OrpheCoreInsole === 'function';
 }
 
 /**
@@ -42,7 +47,7 @@ export function buildCoreCompanionToolkit(
   parent_element: Element,
   title: string,
   options: CoreCompanionToolkitOptions = {},
-): Orphe {
+): CompanionCore {
   if (typeof options.notification === 'undefined') options.notification = 'STEP_ANALYSIS_AND_SENSOR_VALUES';
   if (typeof options.range === 'undefined') options.range = { acc: 16, gyro: 2000 };
   if (typeof options.autoReconnect === 'undefined') options.autoReconnect = false;
@@ -50,10 +55,12 @@ export function buildCoreCompanionToolkit(
   if (typeof options.chooserNamePrefix === 'undefined') options.chooserNamePrefix = 'CR-';
 
   if (!orpheCore) {
-    orpheCore = new Orphe(0, {
-      profile: { namePrefix: options.chooserNamePrefix, acceptExtendedSensorValues: true },
+    orpheCore = new OrpheCoreInsole({
+      profile: coreProfile({ namePrefix: options.chooserNamePrefix, acceptExtendedSensorValues: true }),
+      id: 0,
+      events: { onError: (error) => console.error('CoreCompanionToolkit:', error) },
     });
-    orpheCore.setup();
+    wireCompanionUi(orpheCore);
   } else {
     orpheCore.profile.setNamePrefix(options.chooserNamePrefix);
   }
@@ -173,24 +180,25 @@ export async function toggleCoreCompanion(dom: HTMLInputElement): Promise<void> 
     const ui = byId('ui_core0');
     if (ui) ui.style.visibility = 'visible';
 
-    // 利用者のコールバックを保ったまま、Toolkit の表示更新を差し込む
-    const userGotBLEFrequency = core.gotBLEFrequency;
-    core.gotBLEFrequency = function (this: Orphe, freq: number) {
-      const el = byId('freq_core0');
-      if (el) el.innerHTML = `${Math.floor(freq)} Hz`;
-      if (typeof userGotBLEFrequency === 'function') userGotBLEFrequency.call(this, freq);
-    };
-
-    const userOnDisconnect = core.onDisconnect;
-    core.onDisconnect = function (this: Orphe, ...args: Parameters<Orphe['onDisconnect']>) {
-      setCoreCompanionStatusOffline();
-      if (typeof userOnDisconnect === 'function') userOnDisconnect.apply(this, args);
-    };
+    wireCompanionUi(core);
   } else {
     core.reset();
     const ui = byId('ui_core0');
     if (ui) ui.style.visibility = 'hidden';
   }
+}
+
+const wiredCompanions = new WeakSet<CompanionCore>();
+
+/** 周波数表示と切断時の UI 戻しを購読する（インスタンスごとに 1 回。利用者の購読とは独立） */
+function wireCompanionUi(core: CompanionCore): void {
+  if (wiredCompanions.has(core)) return;
+  wiredCompanions.add(core);
+  core.on('ble_frequency', (freq) => {
+    const el = byId('freq_core0');
+    if (el) el.innerHTML = `${Math.floor(freq)} Hz`;
+  });
+  core.onEvent('onDisconnect', () => setCoreCompanionStatusOffline());
 }
 
 /** timeoutMs 経過で null に解決する begin() 用のガード（0 以下なら待つだけ） */
@@ -221,7 +229,7 @@ export function changeCoreCompanionNotification(dom: { value: string }): void {
 export async function updateCoreCompanionModalParameters(): Promise<void> {
   if (!orpheCore) return;
   try {
-    const obj = await orpheCore.getDeviceInformation();
+    const obj = await orpheCore.commands.readDeviceInformation();
     const ACC_RANGE: Record<number, number> = { 0: 2, 1: 4, 2: 8, 3: 16 };
     const GYRO_RANGE: Record<number, number> = { 0: 250, 1: 500, 2: 1000, 3: 2000 };
     const acc_el = byId('info_core_acc_range0');
@@ -237,7 +245,7 @@ export async function updateCoreCompanionModalParameters(): Promise<void> {
 export async function updateCoreCompanionBatteryInfo(): Promise<void> {
   if (!orpheCore) return;
   try {
-    const obj = await orpheCore.getDeviceInformation();
+    const obj = await orpheCore.commands.readDeviceInformation();
     let str_battery_status: string | undefined;
     if (obj.battery == 0) str_battery_status = 'empty';
     else if (obj.battery == 1) str_battery_status = 'normal';
@@ -262,7 +270,8 @@ export async function updateCoreCompanionBatteryInfo(): Promise<void> {
 export function toggleCoreCompanionLED(): void {
   if (!orpheCore) return;
   ledOn = !ledOn;
-  void orpheCore.setLED(ledOn ? 1 : 0, 0);
+  const core = orpheCore;
+  void core.commands.setLED(ledOn, 0).catch((error: unknown) => core.reportError(error));
   const el = byId('icon_led_core0');
   if (el) {
     el.innerHTML = ledOn ? '<i class="bi bi-lightbulb-fill"></i>' : '<i class="bi bi-lightbulb"></i>';
@@ -272,13 +281,15 @@ export function toggleCoreCompanionLED(): void {
 /** 姿勢（quaternion）の基準をリセットする */
 export function resetCoreCompanionAttitude(): void {
   if (!orpheCore) return;
-  void orpheCore.resetMotionSensorAttitude();
+  const core = orpheCore;
+  void core.commands.resetAttitude().catch((error: unknown) => core.reportError(error));
 }
 
 /** CORE の解析ログをリセットする */
 export function resetCoreCompanionAnalysisLogs(): void {
   if (!orpheCore) return;
-  void orpheCore.resetAnalysisLogs();
+  const core = orpheCore;
+  void core.commands.resetAnalysisLogs().catch((error: unknown) => core.reportError(error));
 }
 
 /** トグルをオフにして UI を隠す */
@@ -290,8 +301,9 @@ export function setCoreCompanionStatusOffline(): void {
 }
 
 /** テスト用: 生成済みの orpheCore を差し替える */
-export function setOrpheCore(core: Orphe | null): void {
+export function setOrpheCore(core: CompanionCore | null): void {
   orpheCore = core;
+  if (core) wireCompanionUi(core);
   ledOn = false;
 }
 

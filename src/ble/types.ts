@@ -71,6 +71,8 @@ export interface TransportEvents {
   onReconnectSuccess?(info: ReconnectSuccessInfo): void;
   /** 自動再接続を諦めた（上限到達） */
   onReconnectFailed?(info: ReconnectFailedInfo): void;
+  /** advertisementreceived（OrpheCoreInsole.watchAdvertisements() の監視中だけ届く） */
+  onAdvertisement?(event: unknown): void;
 }
 
 // ─── 設定 ────────────────────────────────────────────────────────
