@@ -7,14 +7,14 @@
  *   3. モードを選ぶ  … begin() で計測開始。接続中の変更はその場で切り替わる
  *
  * 表示は共通の IMU に加えて、INSOLE なら圧力、CORE なら歩数を出す。
- * FIFO 収録と歩容解析は core.html / insole.html を参照（ここではリアルタイム計測だけを扱う）。
+ * FIFO 収録は CORE / INSOLE とも対応 FW でモードに出る。歩容解析は insole.html を参照。
  *
  * 複数台つなぎたい場合はこのページを台数ぶん開く（SDK 側は 1 インスタンス 1 台）。
  */
-import { OrpheCoreInsole, autoProfile, insoleStreamingModeOf } from '../src/index.ts';
+import { FifoRecorder, OrpheCoreInsole, autoProfile, insoleStreamingModeOf } from '../src/index.ts';
 import type { AutoSensorFields } from '../src/index.ts';
 
-/** モード id → 画面に出す名前。ここに無いモード（FIFO・歩容解析）はセレクタに出さない */
+/** モード id → 画面に出す名前。ここに無いモード（INSOLE の歩容解析）はセレクタに出さない */
 const MODE_LABELS: Record<string, string> = {
   // CORE
   STEP_ANALYSIS_AND_SENSOR_VALUES: '歩行解析 + センサー値',
@@ -24,6 +24,8 @@ const MODE_LABELS: Record<string, string> = {
   STREAMING_4: 'リアルタイム — 圧力 + IMU + 姿勢',
   STREAMING_3: 'リアルタイム高速 — 圧力 + IMU（姿勢なし）',
   STREAMING_1: 'リアルタイム高速 — IMU + 姿勢（圧力なし）',
+  // 共通（対応 FW のみ）
+  FIFO: 'FIFO 収録（ロスレス）',
 };
 
 const q = <T extends Element>(selector: string): T => {
@@ -46,8 +48,9 @@ const debugLogInput = document.getElementById('shared-debug') as HTMLInputElemen
 const autoReconnectInput = document.getElementById('shared-reconnect') as HTMLInputElement;
 
 // ── デバイス ────────────────────────────────────────────────────────
-// 名前が 'CR-' で始まる CORE も chooser に出す（INSOLE は 'INS' の名前で出る）
-const profile = autoProfile({ core: { namePrefix: 'CR-' } });
+// 名前が 'CR-' で始まる CORE も chooser に出す（INSOLE は 'INS' の名前で出る）。
+// CORE は header 50 の 104 バイト版パケットも受け付ける（既定では捨てられ、センサー値が出ない）
+const profile = autoProfile({ core: { namePrefix: 'CR-', acceptExtendedSensorValues: true } });
 
 const ble = new OrpheCoreInsole({
   profile,
@@ -72,6 +75,50 @@ let pressScale = 2000; // 圧力バーのピークホールド自動スケール
 let begun = false;
 ble.on('*', (sample) => Object.assign(latest, sample));
 ble.on('lost_data', () => { lostCount += 1; });
+
+// ── FIFO 収録（対応 FW でのみモードに出る） ──
+const fifo = new FifoRecorder(ble);
+let fifoLag = 0;
+let fifoStarting = false;
+let fifoStopping = false;
+fifo.onProgress = (info) => { fifoLag = info.lag; };
+fifo.onDataLoss = (info) => log(`FIFO 欠損 ${info.dropped}（累計 ${info.cumulative}・${info.reason}）`, true);
+fifo.onStopped = (info) => log(`FIFO 停止（${info.reason}）: collected ${info.collected} / dropped ${info.dropped}`);
+fifo.onError = (error) => log(`FIFO エラー: ${error}`, true);
+
+async function startFifo(): Promise<void> {
+  if (!begun || fifo.isRunning || fifoStarting || fifoStopping) return;
+  fifoStarting = true;
+  try {
+    log('FIFO 収録を開始します（リアルタイム表示は停止します）');
+    if (!(await fifo.start())) log('FIFO 収録を開始できませんでした', true);
+  } catch (error) {
+    log(`FIFO 操作失敗: ${error}`, true);
+  } finally {
+    fifoStarting = false;
+  }
+}
+
+async function stopFifo(): Promise<void> {
+  if (!fifo.isRunning || fifoStopping) return;
+  fifoStopping = true;
+  try {
+    log('FIFO 収録を停止して回収中…');
+    await fifo.stop();
+    log('リアルタイム計測に復帰');
+  } catch (error) {
+    log(`FIFO 操作失敗: ${error}`, true);
+  } finally {
+    fifoStopping = false;
+  }
+}
+
+q<HTMLButtonElement>('[data-fifo-toggle]').addEventListener('click', () => {
+  void (fifo.isRunning ? stopFifo() : startFifo());
+});
+q<HTMLButtonElement>('[data-fifo-csv]').addEventListener('click', () => {
+  fifo.download(`orphe-${profile.kind}-fifo.csv`);
+});
 
 // ── 取得モード ──────────────────────────────────────────────────────
 const modeSelect = q<HTMLSelectElement>('[data-mode]');
@@ -120,6 +167,8 @@ async function applyMode(): Promise<void> {
   if (switching || ble.connectionState !== 'connected') return;
   switching = true;
   try {
+    if (fifo.isRunning && modeSelect.value !== 'FIFO') await stopFifo();
+    // FIFO の収録開始はパネルの「収録開始」ボタンで行う（モード選択は準備まで）
     if (profile.kind === 'insole') await applyInsoleMode(modeSelect.value);
     else await applyCoreMode(modeSelect.value);
   } catch (error) {
@@ -130,7 +179,9 @@ async function applyMode(): Promise<void> {
 }
 
 /** CORE: モード id がそのまま begin() の type。接続中は notify の付け替えで切り替える */
-async function applyCoreMode(type: string): Promise<void> {
+async function applyCoreMode(mode: string): Promise<void> {
+  // FIFO の応答は SENSOR_VALUES の notify で届くので、begin の type は同じ
+  const type = mode === 'FIFO' ? 'SENSOR_VALUES' : mode;
   const autoReconnect = autoReconnectInput.checked;
   if (!begun) {
     await ble.begin(type, { autoReconnect });
@@ -152,6 +203,7 @@ async function applyCoreMode(type: string): Promise<void> {
 
 /** INSOLE: begin() の type は SENSOR_VALUES 固定で、モード id から streamingMode を決める */
 async function applyInsoleMode(mode: string): Promise<void> {
+  // FIFO は圧力・IMU・姿勢がすべて要るので mode 4 をベースにする
   const streamingMode = insoleStreamingModeOf(mode) ?? 4;
   if (!begun) {
     await ble.begin('SENSOR_VALUES', { streamingMode, autoReconnect: autoReconnectInput.checked });
@@ -159,6 +211,7 @@ async function applyInsoleMode(mode: string): Promise<void> {
     log(`begin('SENSOR_VALUES', { streamingMode: ${streamingMode} }) 完了`);
     return;
   }
+  if (fifo.isRunning) return;
   await profile.insole.setDataStreamingMode(ble.transport, streamingMode);
   log(`streamingMode ${streamingMode} に切替`);
 }
@@ -187,17 +240,26 @@ async function connect(): Promise<void> {
   }
 }
 
-function disconnect(): void {
-  ble.stop();
-  log('stop()');
-  markDisconnected();
-  modeWrap.hidden = true;
-  fwEl.textContent = '';
-  clearReadings();
+async function disconnect(): Promise<void> {
+  connectButton.disabled = true;
+  try {
+    if (fifo.isRunning) await stopFifo(); // モード復帰の write は接続中に済ませる
+    ble.stop();
+    log('stop()');
+    markDisconnected();
+    modeWrap.hidden = true;
+    fwEl.textContent = '';
+    clearReadings();
+  } finally {
+    connectButton.disabled = false;
+  }
 }
 
-/** 接続前と同じ見た目へ戻す */
+/** 接続前と同じ見た目へ戻す（収録データ・表示値をすべて捨てる） */
 function clearReadings(): void {
+  if (fifo.collectedCount > 0) log(`FIFO 収録データ ${fifo.collectedCount} 件を破棄しました`);
+  fifo.reset();
+  fifoLag = 0;
   lostCount = 0;
   pressScale = 2000;
   for (const key of Object.keys(latest)) delete (latest as Record<string, unknown>)[key];
@@ -207,8 +269,7 @@ function clearReadings(): void {
 }
 
 connectButton.addEventListener('click', () => {
-  if (ble.connectionState === 'disconnected') void connect();
-  else disconnect();
+  void (ble.connectionState === 'disconnected' ? connect() : disconnect());
 });
 
 // ── 描画 ────────────────────────────────────────────────────────────
@@ -222,6 +283,7 @@ const kindEls = [...document.querySelectorAll<HTMLElement>('[data-kinds]')];
 const stateEl = q<HTMLElement>('[data-state]');
 const kindEl = q<HTMLElement>('[data-kind]');
 const acquisitionEl = q<HTMLElement>('[data-acquisition]');
+const fifoModule = q<HTMLElement>('[data-fifo-module]');
 let appliedKind = '';
 
 function render(): void {
@@ -237,7 +299,29 @@ function render(): void {
     for (const el of kindEls) el.hidden = !(el.dataset['kinds'] ?? '').split(' ').includes(kind);
     kindEl.textContent = kind === 'core' ? 'ORPHE CORE' : kind === 'insole' ? 'ORPHE INSOLE' : 'CORE / INSOLE';
   }
-  acquisitionEl.textContent = !begun ? '' : switching ? '切替中…' : 'リアルタイム計測中';
+  acquisitionEl.textContent =
+    !begun ? ''
+      : switching ? '切替中…'
+        : fifo.isRunning ? 'FIFO 収録中'
+          : fifoStopping ? 'FIFO 回収中…'
+            : modeSelect.value === 'FIFO' ? 'FIFO 待機中'
+              : 'リアルタイム計測中';
+
+  // FIFO パネル（FIFO モード選択中は常時表示。他モードでも収録結果が残る間は表示）
+  const fifoSelected = begun && modeSelect.value === 'FIFO';
+  fifoModule.hidden = !fifoSelected && !fifo.isRunning && !fifoStopping && fifo.collectedCount === 0;
+  // 切断後は収録の操作ができないので、結果と CSV だけを残す
+  q('[data-fifo-title]').textContent = begun ? 'FIFO 収録（ロスレス・収録中はリアルタイム表示が停止）' : 'FIFO 収録結果';
+  const fifoToggle = q<HTMLButtonElement>('[data-fifo-toggle]');
+  fifoToggle.hidden = !begun;
+  fifoToggle.textContent = fifo.isRunning ? '停止' : '収録開始';
+  fifoToggle.disabled = fifoStarting || fifoStopping;
+  q<HTMLButtonElement>('[data-fifo-csv]').disabled = fifo.collectedCount === 0;
+  q('[data-fifo-collected]').textContent = String(fifo.collectedCount);
+  q('[data-fifo-lag]').textContent = String(fifoLag);
+  q('[data-fifo-dropped]').textContent = String(fifo.droppedCount);
+  q('[data-fifo-phase]').textContent =
+    fifoStopping ? '回収中…' : fifo.isRunning ? '収録中' : fifo.collectedCount > 0 ? '収録済み' : '待機中';
 
   q('[data-freq]').textContent = latest.ble_frequency ? latest.ble_frequency.toFixed(0) : '-';
   q('[data-serial]').textContent = latest.serial_number?.toString() ?? '-';

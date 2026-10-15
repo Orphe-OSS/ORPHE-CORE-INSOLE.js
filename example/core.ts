@@ -48,8 +48,9 @@ const debugLogInput = document.getElementById('shared-debug') as HTMLInputElemen
 const autoReconnectInput = document.getElementById('shared-reconnect') as HTMLInputElement;
 
 // ── デバイス ────────────────────────────────────────────────────────
-// 名前が 'CR-' で始まるデバイスも chooser に出す
-const profile = coreProfile({ namePrefix: 'CR-' });
+// 名前が 'CR-' で始まるデバイスも chooser に出す。
+// header 50 の 104 バイト版パケットも受け付ける（既定では捨てられ、センサー値が出ない）
+const profile = coreProfile({ namePrefix: 'CR-', acceptExtendedSensorValues: true });
 
 const ble = new OrpheCoreInsole({
   profile,
