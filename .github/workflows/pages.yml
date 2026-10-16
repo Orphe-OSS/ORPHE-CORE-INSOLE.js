@@ -1,0 +1,89 @@
+# GitHub Pages（https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/）を組み立てて公開する
+#
+# 公開するもの:
+#   index.html / en/index.html   ランディングページ（index.html が正本。en/ は scripts/build-landing.mjs の生成物）
+#   assets/                      画像・動画・フォント
+#   api_doc/                     TypeDoc の出力（.gitignore 対象なので、ここで生成する）
+#   README.md / LICENSE.md       ページ内からリンクしている
+#   robots.txt / sitemap.xml
+#
+# リポジトリ設定 > Pages > Build and deployment > Source を "GitHub Actions" にしておく必要がある。
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - en/**
+      - assets/**
+      - README.md
+      - LICENSE.md
+      - robots.txt
+      - sitemap.xml
+      - scripts/build-landing.mjs
+      - src/**
+      - typedoc.json
+      - package.json
+      - package-lock.json
+      - .github/workflows/pages.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      # action は SHA で固定する（tag は書き換え可能なため）。更新は dependabot に任せる
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 22
+          cache: npm
+
+      # install script は fsevents（macOS のみ）だけなので ubuntu では無効化して困らない
+      - run: npm ci --ignore-scripts
+
+      # en/index.html が index.html から生成した結果と一致することを確認する
+      - run: npm run check:site
+
+      # TypeDoc で api_doc/ を生成する
+      - run: npm run docs
+
+      - name: _site を組み立てる
+        run: |
+          rm -rf _site
+          mkdir -p _site/en
+          cp index.html README.md LICENSE.md robots.txt sitemap.xml _site/
+          cp en/index.html _site/en/
+          cp -R assets _site/assets
+          cp -R api_doc _site/api_doc
+          # Jekyll を通さない（_ で始まるパスや api_doc/assets をそのまま配信する）
+          touch _site/.nojekyll
+          find _site -type f | sort
+
+      - uses: actions/upload-pages-artifact@7b1f4a764d45c48632c6b24a0339c27f5614fb0b # v4.0.0
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

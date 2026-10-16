@@ -20,7 +20,9 @@
     "build": "tsc -p tsconfig.build.json",
     "build:browser": "vite build --config vite.device.config.ts && vite build --config vite.device.config.ts --mode min && vite build --config vite.toolkit.config.ts && vite build --config vite.toolkit.config.ts --mode min",
     "example": "vite",
-    "docs": "typedoc"
+    "docs": "typedoc",
+    "build:site": "node scripts/build-landing.mjs",
+    "check:site": "node scripts/build-landing.mjs --check"
   },
   "author": "Tetsuaki BABA and ORPHE Inc.",
   "license": "SEE LICENSE IN LICENSE.md",

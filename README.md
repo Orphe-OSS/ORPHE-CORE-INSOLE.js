@@ -2,6 +2,10 @@
 
 ORPHE CORE / ORPHE INSOLE を Web Bluetooth で扱う SDK。
 
+- 紹介ページ: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/（[English](https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/en/)）
+- API リファレンス（TypeDoc）: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/api_doc/
+- サンプル集: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/
+
 ```ts
 import { OrpheCoreInsole, insoleProfile } from 'orphe-core-insole';
 
@@ -74,7 +78,15 @@ npm test             # ユニットテスト
 npm run check        # 型チェック + テスト
 npm run build        # dist/ に出力
 npm run example      # サンプル（example/）を起動
+npm run docs         # api_doc/ に TypeDoc を出力
+npm run build:site   # 紹介ページ index.html を正規化し en/index.html を生成
 ```
+
+### 紹介ページ（GitHub Pages）
+
+`index.html` が紹介ページの正本で、文言はページ内の `translations` 辞書（ja / en）にあります。
+`en/index.html` は `npm run build:site` の生成物なので直接編集せず、編集後に再生成してコミットします。
+`main` に push すると `.github/workflows/pages.yml` が TypeDoc を生成し、ページと一緒に GitHub Pages へ公開します。
 
 ## 使い方
 
