@@ -6,3 +6,6 @@ api_doc/
 
 # ローカル検証用に立てた Chrome のプロファイル
 .chrome-ble-debug/
+
+# GitHub Pages 用に組み立てる公開ディレクトリ（.github/workflows/pages.yml が生成）
+_site/

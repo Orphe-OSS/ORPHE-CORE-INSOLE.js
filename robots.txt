@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/sitemap.xml
