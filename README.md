@@ -2,7 +2,7 @@
 
 ORPHE CORE / ORPHE INSOLE を Web Bluetooth で扱う SDK。
 
-- 紹介ページ: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/（[English](https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/en/)）
+- 紹介ページ: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/ （English: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/en/ ）
 - API リファレンス（TypeDoc）: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/api_doc/
 - サンプル集: https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/
 
