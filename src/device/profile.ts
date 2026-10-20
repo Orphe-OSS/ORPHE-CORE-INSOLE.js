@@ -35,7 +35,11 @@ export type SensorFieldMap = Record<string, unknown>;
  * begin() の notification type のほか、FIFO のような上位機能も 1 モードとして並べる。
  */
 export interface DeviceMode {
-  /** モード識別子（begin() に渡す type 名と同じ文字列） */
+  /**
+   * UI などで取得方式を識別する ID。begin() の notification type とは必ずしも一致しない。
+   * 例: STREAMING_4 は begin('SENSOR_VALUES', { streamingMode: 4 })、
+   * FIFO は FifoRecorder.start() で開始する。
+   */
   id: string;
   /** 表示用のラベル */
   label: string;

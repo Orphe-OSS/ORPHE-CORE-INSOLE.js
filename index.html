@@ -4,6 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex">
   <title>ORPHE-CORE-INSOLE.js | ORPHE CORE / ORPHE INSOLE 共通 JavaScript SDK</title>
   <meta name="description"
     content="ORPHE-CORE-INSOLE.jsは、Web BluetoothでORPHE COREとORPHE INSOLEをひとつのAPIから扱うJavaScript SDKです。IMU・歩容解析・足裏圧データをブラウザアプリへ接続します。">
@@ -1063,7 +1064,7 @@
           <p class="eyebrow" data-i18n="heroEyebrow">ORPHE CORE / ORPHE INSOLE 向け Web Bluetooth SDK</p>
           <h1 id="hero-title">ORPHE-CORE-INSOLE.js</h1>
           <p class="hero-copy">
-            <span data-i18n="heroCopy1">One API for both ORPHE CORE and ORPHE INSOLE.</span>
+            <span data-i18n="heroCopy1">ひとつのAPIで、ORPHE COREもORPHE INSOLEも。</span>
             <span data-i18n="heroCopy2">足に着けるIMUセンサー「ORPHE CORE」と、圧力センサー内蔵スマートインソール「ORPHE INSOLE」。どちらもこのSDKひとつで、Web Bluetooth経由でブラウザアプリにつながります。</span>
           </p>
           <div class="hero-actions">
@@ -1076,19 +1077,19 @@
         <div class="hero-facts" aria-label="主な機能" data-i18n-aria-label="heroFactsLabel">
           <div class="hero-fact">
             <strong data-i18n="factDevicesTitle">2 devices, 1 API</strong>
-            <span data-i18n="factDevicesBody">Same OrpheCoreInsole class for CORE and INSOLE</span>
+            <span data-i18n="factDevicesBody">COREもINSOLEも同じOrpheCoreInsoleクラス</span>
           </div>
           <div class="hero-fact core">
             <strong>ORPHE CORE</strong>
-            <span data-i18n="factCoreBody">6-axis IMU, gait analysis, LED control</span>
+            <span data-i18n="factCoreBody">6軸IMU・歩容解析・LED制御</span>
           </div>
           <div class="hero-fact insole">
             <strong>ORPHE INSOLE</strong>
-            <span data-i18n="factInsoleBody">6 pressure sensors + 6-axis IMU</span>
+            <span data-i18n="factInsoleBody">6点圧力センサー + 6軸IMU</span>
           </div>
           <div class="hero-fact">
             <strong>BLE</strong>
-            <span data-i18n="factBleBody">Web Bluetooth browser workflow</span>
+            <span data-i18n="factBleBody">Web Bluetoothでブラウザから直接接続</span>
           </div>
         </div>
       </div>
@@ -1098,25 +1099,25 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="aboutEyebrow">ORPHE-CORE-INSOLE.jsとは？</p>
-          <h2 data-i18n="aboutTitle">CORE and INSOLE data, through one shared SDK.</h2>
+          <h2 data-i18n="aboutTitle">COREとINSOLEのデータを、共通のSDKで。</h2>
           <p class="lead" data-i18n="aboutLead">ORPHE-CORE.jsとORPHE-INSOLE.jsを統合した共通SDKです。接続、再接続、購読、収録、デバイスコマンドを同じAPIで扱えるので、CORE向けに書いたコードをINSOLEへ、あるいはその逆へ、ほとんど変更なしに持ち運べます。</p>
           <div class="feature-list">
             <div class="feature-item">
               <div>
-                <h3 data-i18n="feature1Title">One class, two profiles, automatic detection</h3>
-                <p data-i18n-html="feature1Body">Create <code>new OrpheCoreInsole({ profile: coreProfile() })</code> or <code>insoleProfile()</code>. Omit the profile and the SDK shows both devices in the chooser and detects the type from the device name.</p>
+                <h3 data-i18n="feature1Title">1つのクラス、2つのプロファイル、自動判別</h3>
+                <p data-i18n-html="feature1Body"><code>new OrpheCoreInsole({ profile: coreProfile() })</code> または <code>insoleProfile()</code> で作ります。プロファイルを省略すると接続ダイアログに両方のデバイスが出て、デバイス名から種別を自動判別します。</p>
               </div>
             </div>
             <div class="feature-item">
               <div>
-                <h3 data-i18n="feature2Title">Reconnect, lossless FIFO recording, gait analysis</h3>
-                <p data-i18n="feature2Body">Automatic reconnection to remembered devices, FIFO recording with CSV export, insole gait analysis, cross-tab connection sharing, and a simulator for development without hardware.</p>
+                <h3 data-i18n="feature2Title">再接続、FIFO収録、歩容解析</h3>
+                <p data-i18n="feature2Body">autoReconnect: true で自動再接続、useSharedBridge: true でタブ間共有を有効にできます。FIFO収録には対応FWが必要です。INSOLE向けの歩容解析とシミュレータも備えています。</p>
               </div>
             </div>
             <div class="feature-item">
               <div>
-                <h3 data-i18n="feature3Title">Compatible with the previous libraries</h3>
-                <p data-i18n-html="feature3Body">Existing <code>new Orphe(0)</code> / <code>new OrpheInsole(0)</code> code with <code>got*</code> callbacks keeps working. Migrate to the new API at your own pace.</p>
+                <h3 data-i18n="feature3Title">旧ライブラリとの互換性</h3>
+                <p data-i18n-html="feature3Body">互換クラス <code>Orphe</code> / <code>OrpheInsole</code> は <code>got*</code> コールバックを保持します。toolkitが作るインスタンスは新APIなので、移行時は <code>on()</code> または <code>attachLegacyCallbacks()</code> を使います。</p>
               </div>
             </div>
           </div>
@@ -1128,7 +1129,7 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="productEyebrow">対応製品</p>
-          <h2 data-i18n="productTitle">Two devices, one SDK: pick the sensor that fits your idea.</h2>
+          <h2 data-i18n="productTitle">2つのデバイス、1つのSDK。アイデアに合うセンサーを選べます。</h2>
           <p class="lead" data-i18n="productLead">足の甲や靴ひもに装着して動きを捉えるORPHE COREと、中敷きとして足裏圧まで計測するORPHE INSOLE。用途に合わせて選んでも、両方を同時につないでも、同じコードで扱えます。</p>
         </div>
 
@@ -1137,33 +1138,33 @@
             <img src="assets/images/orphe-core-3-front.jpg" alt="ORPHE CORE 3.0 sensor module, front view">
             <div class="product-caption">
               <span>ORPHE CORE 3.0</span>
-              <span data-i18n="coreImageCaption">Foot-mounted IMU module</span>
+              <span data-i18n="coreImageCaption">足部装着型IMUモジュール</span>
             </div>
           </div>
           <div>
             <span class="device-badge core">ORPHE CORE</span>
-            <h3 data-i18n="coreTitle">A compact motion sensor that clips onto your shoes.</h3>
+            <h3 data-i18n="coreTitle">靴に取り付ける小型モーションセンサー。</h3>
             <p class="lead" data-i18n="coreLead">ORPHE COREは、靴ひもに取り付けるシューレースマウントや対応シューズで足に装着する6軸IMUセンサーです。生のセンサー値に加えて、歩数・歩容タイプ・ストライド・プロネーションなどの歩容解析結果をデバイス側で計算して送ります。</p>
             <div class="spec-grid">
               <div class="spec-item core">
-                <span data-i18n="coreSpecSensorsTag">Sensors</span>
-                <strong data-i18n="coreSpecSensorsTitle">6-axis IMU + on-device gait analysis</strong>
-                <p data-i18n="coreSpecSensorsBody">3-axis acceleration and 3-axis gyroscope, with step analysis computed on the module at up to 200 Hz.</p>
+                <span data-i18n="coreSpecSensorsTag">センサー</span>
+                <strong data-i18n="coreSpecSensorsTitle">6軸IMU + デバイス内歩容解析</strong>
+                <p data-i18n="coreSpecSensorsBody">3軸加速度・3軸角速度をCORE 3.0では最大200Hzでサンプリングします。歩容イベントは歩単位で配送します。</p>
               </div>
               <div class="spec-item core">
-                <span data-i18n="coreSpecRangeTag">Range</span>
+                <span data-i18n="coreSpecRangeTag">レンジ</span>
                 <strong>±2–16G / ±250–2000dps</strong>
-                <p data-i18n="coreSpecRangeBody">Selectable acceleration and gyroscope ranges via the SDK.</p>
+                <p data-i18n="coreSpecRangeBody">加速度・角速度のレンジはSDKから切り替えられます。</p>
               </div>
               <div class="spec-item core">
-                <span data-i18n="coreSpecSizeTag">Form</span>
-                <strong data-i18n="coreSpecSizeTitle">45 × 29 × 14 mm, approx. 20 g</strong>
-                <p data-i18n="coreSpecSizeBody">IPX7 water resistance, full-color LED, micro USB charging, about 8 hours per charge.</p>
+                <span data-i18n="coreSpecSizeTag">形状</span>
+                <strong data-i18n="coreSpecSizeTitle">45 × 29 × 14 mm、約20 g</strong>
+                <p data-i18n="coreSpecSizeBody">IPX7防水、フルカラーLED、micro USB充電、約8時間駆動。</p>
               </div>
               <div class="spec-item core">
-                <span data-i18n="coreSpecMountTag">Mount</span>
-                <strong data-i18n="coreSpecMountTitle">Shoelace mount or ORPHE shoes</strong>
-                <p data-i18n="coreSpecMountBody">Attach to any laced shoe with the shoelace mount, or use dedicated shoes. Two modules are needed to measure both feet.</p>
+                <span data-i18n="coreSpecMountTag">装着</span>
+                <strong data-i18n="coreSpecMountTitle">シューレースマウントまたは対応シューズ</strong>
+                <p data-i18n="coreSpecMountBody">シューレースマウントで靴ひものある手持ちのシューズに取り付けるか、専用シューズを使います。両足の計測には2台必要です。</p>
               </div>
             </div>
             <p class="product-note" data-i18n="coreNote">対応シューズとしてEASYRUN SHIBUYA 3.0とRUNWALK ORPHEが案内されています。CORE 2.0と3.0の両方に対応しますが、200Hzのデータ欠損検出はCORE 3.0のみです。</p>
@@ -1186,28 +1187,28 @@
           </div>
           <div>
             <span class="device-badge insole">ORPHE INSOLE</span>
-            <h3 data-i18n="insoleTitle">A pressure and motion platform inside the insole.</h3>
+            <h3 data-i18n="insoleTitle">インソール内の圧力・モーションプラットフォーム。</h3>
             <p class="lead" data-i18n="insoleLead">ORPHE INSOLEは、通常の中敷きと交換して使えるスマートインソールです。片足6点の圧力センサーと6軸IMUで、足裏圧と足の動きをリアルタイムに計測します。</p>
             <div class="spec-grid">
               <div class="spec-item insole">
-                <span data-i18n="insoleSpecSensorsTag">Sensors</span>
-                <strong data-i18n="insoleSpecSensorsTitle">6 pressure sensors + 6-axis motion</strong>
-                <p data-i18n="insoleSpecSensorsBody">Each foot includes six pressure sensors plus 3-axis acceleration and 3-axis gyroscope data.</p>
+                <span data-i18n="insoleSpecSensorsTag">センサー</span>
+                <strong data-i18n="insoleSpecSensorsTitle">6点圧力センサー + 6軸モーション</strong>
+                <p data-i18n="insoleSpecSensorsBody">片足ごとに6点の圧力センサーと、3軸加速度・3軸角速度のデータを取得できます。</p>
               </div>
               <div class="spec-item insole">
-                <span data-i18n="insoleSpecRangeTag">Range</span>
+                <span data-i18n="insoleSpecRangeTag">レンジ</span>
                 <strong>±16G / ±2000dps / 0-148N</strong>
-                <p data-i18n="insoleSpecRangeBody">Store-listed ranges for acceleration, gyroscope, and pressure measurement.</p>
+                <p data-i18n="insoleSpecRangeBody">加速度・角速度・圧力の計測範囲はストア掲載値です。</p>
               </div>
               <div class="spec-item insole">
-                <span data-i18n="insoleSpecRateTag">Sampling</span>
+                <span data-i18n="insoleSpecRateTag">サンプリング</span>
                 <strong>100Hz / 200Hz</strong>
-                <p data-i18n="insoleSpecRateBody">Sampling rate may vary depending on the application and mode.</p>
+                <p data-i18n="insoleSpecRateBody">サンプリングレートはアプリやモードによって異なる場合があります。</p>
               </div>
               <div class="spec-item insole">
-                <span data-i18n="insoleSpecBatteryTag">Battery</span>
-                <strong data-i18n="insoleSpecBatteryTitle">Approx. 24 hours</strong>
-                <p data-i18n="insoleSpecBatteryBody">Magnetic connector charging, plus wireless charging with the separately sold ORPHE MAT.</p>
+                <span data-i18n="insoleSpecBatteryTag">バッテリー</span>
+                <strong data-i18n="insoleSpecBatteryTitle">約24時間</strong>
+                <p data-i18n="insoleSpecBatteryBody">マグネットコネクタ充電に加え、別売りのORPHE MATによるワイヤレス充電に対応。</p>
               </div>
             </div>
             <p class="product-note insole" data-i18n="insoleNote">公式ストアでは現在、ORPHE INSOLE βは承認済み顧客・研究パートナー向けのEvaluation Kitとして掲載され、3ペアのインソールとiOSアプリを含むと説明されています。CES 2026 Best of Innovation（Sports &amp; Fitness）を受賞しています。</p>
@@ -1225,36 +1226,36 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="dataEyebrow">何のデータが取れる？</p>
-          <h2 data-i18n="dataTitle">Subscribe to the fields you need with on().</h2>
+          <h2 data-i18n="dataTitle">必要なフィールドを on() で購読する。</h2>
           <p class="lead" data-i18n-html="dataLead">パケットのパースはSDKが行い、<code>ble.on('フィールド名', callback)</code> で値を受け取ります。<code>'*'</code> を指定すると1サンプル全体が届きます。デバイスごとに使えるフィールドが違うので、下の2つのグループを参考にしてください。</p>
         </div>
 
         <div class="data-group">
           <div class="data-group-head">
             <span class="device-badge core">ORPHE CORE</span>
-            <h3 data-i18n="coreDataTitle">Motion, gait analysis, and device control</h3>
+            <h3 data-i18n="coreDataTitle">モーション、歩容解析、デバイス制御</h3>
             <p data-i18n-html="coreDataBody"><code>SENSOR_VALUES</code>（生値）、<code>STEP_ANALYSIS</code>（歩容解析）、両方同時の3モードから選びます。</p>
           </div>
           <div class="data-grid">
             <div class="tile core">
               <span class="tag">on('converted_acc' | 'converted_gyro' | 'quat' | 'euler')</span>
-              <h3 data-i18n="coreDataMotionTitle">Motion sensor values</h3>
-              <p data-i18n="coreDataMotionBody">Acceleration, angular velocity, quaternion, and Euler angles. Up to 200 Hz on CORE 3.0 for games, visuals, and sound.</p>
+              <h3 data-i18n="coreDataMotionTitle">モーションセンサー値</h3>
+              <p data-i18n="coreDataMotionBody">加速度・角速度・クォータニオン・オイラー角。CORE 3.0では最大200Hzで、ゲームやビジュアル、サウンドに使えます。</p>
             </div>
             <div class="tile core">
               <span class="tag">on('steps_number' | 'gait' | 'direction' | 'distance')</span>
-              <h3 data-i18n="coreDataGaitTitle">Gait analysis</h3>
-              <p data-i18n="coreDataGaitBody">Step count, gait type, direction, distance, calories, and stance / swing phase durations computed on the device per step.</p>
+              <h3 data-i18n="coreDataGaitTitle">歩容解析</h3>
+              <p data-i18n="coreDataGaitBody">歩数、歩容タイプ、方向、距離、カロリー、立脚・遊脚時間を、デバイスが1歩ごとに計算して送ります。</p>
             </div>
             <div class="tile core">
               <span class="tag">on('stride' | 'pronation' | 'foot_angle' | 'landing_impact')</span>
-              <h3 data-i18n="coreDataFootTitle">Foot metrics</h3>
-              <p data-i18n="coreDataFootBody">Stride length, pronation, foot angle at contact, and landing impact for running form and rehabilitation prototypes.</p>
+              <h3 data-i18n="coreDataFootTitle">足部の指標</h3>
+              <p data-i18n="coreDataFootBody">ストライド、プロネーション、接地時の足部角度、着地衝撃。ランニングフォームやリハビリの試作に。</p>
             </div>
             <div class="tile core">
               <span class="tag">commands.setLED / setMountPosition / resetAttitude</span>
-              <h3 data-i18n="coreDataControlTitle">Device control</h3>
-              <p data-i18n="coreDataControlBody">Full-color LED patterns and brightness, mount position, sensor range, attitude reset, and device information read / write.</p>
+              <h3 data-i18n="coreDataControlTitle">デバイス制御</h3>
+              <p data-i18n="coreDataControlBody">フルカラーLEDのパターンと明るさ、装着位置、センサーレンジ、姿勢リセット、デバイス情報の読み書き。</p>
             </div>
           </div>
         </div>
@@ -1262,29 +1263,39 @@
         <div class="data-group">
           <div class="data-group-head">
             <span class="device-badge insole">ORPHE INSOLE</span>
-            <h3 data-i18n="insoleDataTitle">Pressure, motion, and orientation</h3>
-            <p data-i18n-html="insoleDataBody"><code>SENSOR_VALUES</code> の1モードで、<code>streamingMode</code> 1 / 3 / 4 により届くフィールドが変わります。</p>
+            <h3 data-i18n="insoleDataTitle">圧力、モーション、姿勢</h3>
+            <p data-i18n-html="insoleDataBody">リアルタイムセンサーストリームは <code>SENSOR_VALUES</code> を使い、<code>streamingMode</code> 1 / 3 / 4 で届くフィールドを選びます。歩容解析・FIFO収録は別の取得方式です。</p>
           </div>
           <div class="data-grid">
             <div class="tile insole">
               <span class="tag">on('press' | 'converted_press')</span>
-              <h3 data-i18n="insoleDataPressureTitle">Pressure values</h3>
-              <p data-i18n="insoleDataPressureBody">Six raw pressure channels per foot, plus calibrated load in newtons for balance, loading, and contact timing.</p>
+              <h3 data-i18n="insoleDataPressureTitle">圧力値</h3>
+              <p data-i18n="insoleDataPressureBody">片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合は固定式を使います。</p>
             </div>
             <div class="tile insole">
               <span class="tag">on('converted_acc')</span>
-              <h3 data-i18n="insoleDataAccTitle">Acceleration</h3>
-              <p data-i18n="insoleDataAccBody">Converted XYZ acceleration for movement intensity, step timing, and interaction design.</p>
+              <h3 data-i18n="insoleDataAccTitle">加速度</h3>
+              <p data-i18n="insoleDataAccBody">換算済みのXYZ加速度。動きの強さ、ステップのタイミング、インタラクション設計に。</p>
             </div>
             <div class="tile insole">
               <span class="tag">on('converted_gyro')</span>
-              <h3 data-i18n="insoleDataGyroTitle">Angular velocity</h3>
-              <p data-i18n="insoleDataGyroBody">Rotational motion of the foot without writing your own BLE parser.</p>
+              <h3 data-i18n="insoleDataGyroTitle">角速度</h3>
+              <p data-i18n="insoleDataGyroBody">BLEパーサーを自分で書かずに、足の回転運動を取得できます。</p>
             </div>
             <div class="tile insole">
               <span class="tag">on('quat' | 'euler')</span>
-              <h3 data-i18n="insoleDataQuatTitle">Orientation</h3>
-              <p data-i18n="insoleDataQuatBody">In default streaming mode 4, quaternion and Euler angles arrive together with pressure and motion data.</p>
+              <h3 data-i18n="insoleDataQuatTitle">姿勢</h3>
+              <p data-i18n="insoleDataQuatBody">既定のstreamingMode 4では、クォータニオンとオイラー角が圧力・モーションと一緒に届きます。</p>
+            </div>
+            <div class="tile insole">
+              <span class="tag">InsoleGait</span>
+              <h3 data-i18n="insoleDataGaitTitle">INSOLEの歩容解析</h3>
+              <p data-i18n="insoleDataGaitBody">InsoleGaitでINSOLEの1歩ごとの歩容行を記録し、CSVを出力できます。</p>
+            </div>
+            <div class="tile insole">
+              <span class="tag">createInsoleSimulator()</span>
+              <h3 data-i18n="insoleDataSimTitle">シミュレータ</h3>
+              <p data-i18n="insoleDataSimBody">実機なしで開発できます。実機と同じパース経路を通る仮想INSOLEです。</p>
             </div>
           </div>
           <div class="tile" style="margin-top:16px; display:flex; flex-wrap:wrap; gap:28px; align-items:center;">
@@ -1296,8 +1307,8 @@
             </div>
             <div style="flex:1 1 300px;">
               <span class="tag" data-i18n="dataCoordsTag">センサー仕様（INSOLE）</span>
-              <h3 data-i18n="dataCoordsTitle">Coordinate system and pressure sensor placement</h3>
-              <p data-i18n="dataCoordsBody">The sensor frame is right-handed and Z-up: Y points toward the toes, X to the right of the toe direction, and Z upward out of the insole top surface (accZ reads about +1 G at rest). Six pressure sensors per foot are numbered 1–6 as shown; press.values[i] corresponds to sensor i + 1.</p>
+              <h3 data-i18n="dataCoordsTitle">座標系と圧力センサーの配置</h3>
+              <p data-i18n="dataCoordsBody">センサー座標系は右手系でZが上向きです。Yはつま先方向、Xはつま先方向に対して右、Zはインソール上面から上向き（静止時のaccZは約+1G）。圧力センサーは片足6点で図の1〜6の番号が付き、press.values[i] はセンサー i + 1 に対応します。</p>
             </div>
           </div>
         </div>
@@ -1305,28 +1316,23 @@
         <div class="data-group">
           <div class="data-group-head">
             <span class="device-badge">CORE + INSOLE</span>
-            <h3 data-i18n="commonDataTitle">Shared on both devices</h3>
+            <h3 data-i18n="commonDataTitle">両方のデバイスで共通</h3>
           </div>
           <div class="data-grid">
             <div class="tile both">
               <span class="tag">on('ble_frequency' | 'lost_data')</span>
-              <h3 data-i18n="commonDataHealthTitle">Stream health</h3>
-              <p data-i18n="commonDataHealthBody">Measured packet rate and detected gaps in serial numbers, so you can tell BLE drops from sensor behavior.</p>
+              <h3 data-i18n="commonDataHealthTitle">ストリームの健全性</h3>
+              <p data-i18n="commonDataHealthBody">実測のパケットレートと、シリアル番号の欠落検出。BLEの取りこぼしとセンサーの挙動を切り分けられます。</p>
             </div>
             <div class="tile both">
               <span class="tag">onEvent('onConnect' | 'onDisconnect' | …)</span>
-              <h3 data-i18n="commonDataLifecycleTitle">Lifecycle events</h3>
-              <p data-i18n="commonDataLifecycleBody">Connect, disconnect, errors, and reconnect progress. Subscribe as many times as you like; each call returns an unsubscribe function.</p>
+              <h3 data-i18n="commonDataLifecycleTitle">ライフサイクルイベント</h3>
+              <p data-i18n="commonDataLifecycleBody">接続、切断、エラー、再接続の進行。何個でも購読でき、各呼び出しは解除関数を返します。</p>
             </div>
             <div class="tile both">
-              <span class="tag">FifoRecorder / InsoleGait</span>
-              <h3 data-i18n="commonDataRecordTitle">Recording helpers</h3>
-              <p data-i18n="commonDataRecordBody">Lossless FIFO capture from the device buffer and per-step gait rows, both with CSV download.</p>
-            </div>
-            <div class="tile both">
-              <span class="tag">createInsoleSimulator()</span>
-              <h3 data-i18n="commonDataSimTitle">Simulator</h3>
-              <p data-i18n="commonDataSimBody">Develop without hardware: a virtual INSOLE that goes through the same parsing path as a real device.</p>
+              <span class="tag">FifoRecorder</span>
+              <h3 data-i18n="commonDataRecordTitle">収録ヘルパー</h3>
+              <p data-i18n="commonDataRecordBody">FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260905以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。</p>
             </div>
           </div>
         </div>
@@ -1337,8 +1343,8 @@
       <div class="section-inner quick-start">
         <div>
           <p class="eyebrow" data-i18n="quickEyebrow">クイックスタート</p>
-          <h2 data-i18n="quickTitle">Connect either device and print live data.</h2>
-          <p class="lead" data-i18n-html="quickLead">CDNのビルドを読み込み、<code>OrpheCoreInsoleJS</code> から <code>OrpheCoreInsole</code> を取り出します。プロファイルを省略すると、接続ダイアログにCOREとINSOLEの両方が出て、選んだデバイスを自動判別します。</p>
+          <h2 data-i18n="quickTitle">どちらのデバイスでも接続して、ライブデータを表示する。</h2>
+          <p class="lead" data-i18n-html="quickLead">Web Bluetooth対応ブラウザで、HTTPSまたはlocalhostから開いてください。CDNのビルドを読み込み、<code>OrpheCoreInsoleJS</code> から <code>OrpheCoreInsole</code> を取り出します。プロファイルを省略すると接続ダイアログにCOREとINSOLEの両方が出て、選んだデバイスを自動判別します。</p>
           <div class="section-actions">
             <a class="button primary" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/SENSOR-DASHBOARD/" data-i18n="quickDashboard">Sensor Dashboardを試す</a>
             <a class="button secondary" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/TERMINAL/" data-i18n="quickTerminal">Terminalを開く</a>
@@ -1346,77 +1352,78 @@
           <table class="mode-table">
             <thead>
               <tr>
-                <th data-i18n="modeHeaderDevice">Device</th>
-                <th data-i18n="modeHeaderMode">begin() type / option</th>
-                <th data-i18n="modeHeaderData">Data stream</th>
+                <th data-i18n="modeHeaderDevice">デバイス</th>
+                <th data-i18n="modeHeaderMode">begin() の種別 / オプション</th>
+                <th data-i18n="modeHeaderData">データストリーム</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td class="device-cell">CORE</td>
                 <td><code>'SENSOR_VALUES'</code></td>
-                <td data-i18n="coreModeSensorBody">Raw acceleration, gyro, quaternion at 50–200 Hz.</td>
+                <td data-i18n="coreModeSensorBody">生の加速度・角速度・クォータニオンを50〜200Hzで。</td>
               </tr>
               <tr>
                 <td class="device-cell">CORE</td>
                 <td><code>'STEP_ANALYSIS'</code></td>
-                <td data-i18n="coreModeStepBody">Per-step gait results (about 30 Hz). Default when the type is omitted.</td>
+                <td data-i18n="coreModeStepBody">歩数の増加に応じた歩容解析結果。通知パケットの頻度とは異なります。種別を省略したときの既定。</td>
               </tr>
               <tr>
                 <td class="device-cell">CORE</td>
                 <td><code>'STEP_ANALYSIS_AND_SENSOR_VALUES'</code></td>
-                <td data-i18n="coreModeBothBody">Both streams at once.</td>
+                <td data-i18n="coreModeBothBody">両方のストリームを同時に。</td>
               </tr>
               <tr>
                 <td class="device-cell">INSOLE</td>
                 <td><code>{ streamingMode: 4 }</code></td>
-                <td data-i18n="insoleMode4Body">Gyro, acceleration, pressure, quaternion. Default.</td>
+                <td data-i18n="insoleMode4Body">角速度、加速度、圧力、クォータニオン。サンプリング100Hz、パケット送出50Hz。既定。</td>
               </tr>
               <tr>
                 <td class="device-cell">INSOLE</td>
                 <td><code>{ streamingMode: 3 }</code></td>
-                <td data-i18n="insoleMode3Body">Gyro, acceleration, pressure.</td>
+                <td data-i18n="insoleMode3Body">角速度、加速度、圧力。サンプリング200Hz、パケット送出50Hz。クォータニオンなし。</td>
               </tr>
               <tr>
                 <td class="device-cell">INSOLE</td>
                 <td><code>{ streamingMode: 1 }</code></td>
-                <td data-i18n="insoleMode1Body">Orientation only, for compatibility tests.</td>
+                <td data-i18n="insoleMode1Body">クォータニオン、加速度、角速度。サンプリング200Hz、パケット送出50Hz。圧力なし。</td>
               </tr>
             </tbody>
           </table>
+          <p class="lead" data-i18n="quickCoreGait">COREの歩容解析には、共通例のscript内を次のコードに置き換えます。センサー値も必要な場合はSTEP_ANALYSIS_AND_SENSOR_VALUESを指定します。</p>
+          <pre class="code-block"><code id="core-gait-code">const { OrpheCoreInsole, coreProfile } = OrpheCoreInsoleJS;
+const core = new OrpheCoreInsole({ profile: coreProfile() });
+core.on("gait", (gait) =&gt; console.log(gait));
+document.getElementById("connect").onclick = () =&gt;
+  core.begin("STEP_ANALYSIS").catch(console.error);</code></pre>
           <p class="lead" style="margin-top: 18px;" data-i18n-html="quickToolkit">接続トグルと設定モーダルが欲しいときは <code>orphe-core-insole-toolkit.js</code> も読み込み、<code>buildCoreToolkit()</code> / <code>buildInsoleToolkit()</code> で接続UIを作れます（Bootstrap 5 が必要）。</p>
           <p class="lead" style="margin-top: 18px;" data-i18n-html="quickResources">詳細リファレンス: <a href="api_doc/">APIリファレンス（TypeDoc）</a> / <a href="https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js#使い方">README の使い方</a> / <a href="https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/tags">リリースタグ一覧</a>。</p>
         </div>
-        <pre class="code-block"><code>&lt;button id="connect"&gt;Connect ORPHE CORE / INSOLE&lt;/button&gt;
+        <pre class="code-block"><code id="quick-start-code">&lt;button id="connect"&gt;Connect ORPHE CORE / INSOLE&lt;/button&gt;
 &lt;pre id="sensor-data"&gt;&lt;/pre&gt;
+&lt;pre id="pressure-data"&gt;&lt;/pre&gt;
 
 &lt;script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.0/dist/browser/orphe-core-insole.js"&gt;&lt;/script&gt;
 &lt;script&gt;
-  <span class="keyword">const</span> { OrpheCoreInsole } = OrpheCoreInsoleJS;
+  const { OrpheCoreInsole } = OrpheCoreInsoleJS;
+  const ble = new OrpheCoreInsole();
 
-  <span class="comment">// profile を省略すると CORE / INSOLE を自動判別する</span>
-  <span class="keyword">const</span> ble = <span class="keyword">new</span> OrpheCoreInsole();
-
-  <span class="comment">// 両方のデバイスで届く</span>
-  ble.on(<span class="string">"quat"</span>, (quat) =&gt; console.log(<span class="string">"quat"</span>, quat));
-  ble.on(<span class="string">"converted_acc"</span>, (acc) =&gt; console.log(<span class="string">"acc"</span>, acc));
-
-  <span class="comment">// INSOLE のみ: 6ch 圧力</span>
-  ble.on(<span class="string">"press"</span>, (press) =&gt; {
-    document.getElementById(<span class="string">"sensor-data"</span>).textContent =
+  ble.on("converted_acc", (acc) =&gt; {
+    document.getElementById("sensor-data").textContent =
+      JSON.stringify({ x: acc.x, y: acc.y, z: acc.z });
+  });
+  ble.on("press", (press) =&gt; {
+    document.getElementById("pressure-data").textContent =
       JSON.stringify(press.values);
   });
 
-  <span class="comment">// CORE のみ: 1 歩ごとの歩容解析</span>
-  ble.on(<span class="string">"gait"</span>, (gait) =&gt; console.log(<span class="string">"gait"</span>, gait));
-
-  ble.onEvent(<span class="string">"onConnect"</span>, () =&gt; {
-    console.log(<span class="string">"connected:"</span>, ble.profile.kind);   <span class="comment">// 'core' | 'insole'</span>
-  });
-
-  document.getElementById(<span class="string">"connect"</span>).onclick = <span class="keyword">async</span> () =&gt; {
-    <span class="comment">// 種別を省略すると CORE は STEP_ANALYSIS、INSOLE は SENSOR_VALUES で開始</span>
-    <span class="keyword">await</span> ble.begin();
+  document.getElementById("connect").onclick = async () =&gt; {
+    try {
+      await ble.begin("SENSOR_VALUES");
+      console.log("connected:", ble.profile.kind);
+    } catch (error) {
+      document.getElementById("sensor-data").textContent = String(error);
+    }
   };
 &lt;/script&gt;</code></pre>
       </div>
@@ -1426,80 +1433,80 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="examplesEyebrow">サンプルで試す</p>
-          <h2 data-i18n="examplesTitle">Pick an example for your device, or one that runs on both.</h2>
+          <h2 data-i18n="examplesTitle">デバイス別のサンプルも、どちらでも動くサンプルも。</h2>
           <p class="lead" data-i18n="examplesLead">すべてのサンプルはCDN版のSDKで動く静的ページとして、別リポジトリ ORPHE-CORE-INSOLE.js-EXAMPLE で公開しています。ブラウザで開いてそのまま接続できます。</p>
         </div>
 
         <div class="example-group">
           <div class="data-group-head">
             <span class="device-badge core">ORPHE CORE</span>
-            <h3 data-i18n="coreExamplesTitle">Motion and gait with CORE</h3>
+            <h3 data-i18n="coreExamplesTitle">COREでモーションと歩容を扱う</h3>
           </div>
           <div class="example-grid">
             <a class="example-link core" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/LIGHT/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/LIGHT/teaser.gif" alt="LIGHT example: LED blinking on ORPHE CORE" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleLightTag">First step</span>
+                <span data-i18n="exampleLightTag">最初の一歩</span>
                 <div>
                   <h3>LIGHT</h3>
-                  <p data-i18n="exampleLightBody">Connect one CORE and control the LED. The smallest possible example to confirm Web Bluetooth works.</p>
+                  <p data-i18n="exampleLightBody">CORE 1台をつないでLEDを制御します。Web Bluetoothが動くことを確認する最小のサンプルです。</p>
                 </div>
-                <strong data-i18n="exampleLightCta">Open LIGHT</strong>
+                <strong data-i18n="exampleLightCta">LIGHTを開く</strong>
               </div>
             </a>
             <a class="example-link core" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/CORETOOLKIT-STARTER/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/coretoolkit-starter.png" alt="CoreToolkit starter screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleStarterTag">Starter</span>
+                <span data-i18n="exampleStarterTag">スターター</span>
                 <div>
                   <h3>CORETOOLKIT STARTER</h3>
-                  <p data-i18n="exampleStarterBody">Connection UI built with buildCoreToolkit() for two modules, plus live sensor and gait values. Copy it as the base of your own app.</p>
+                  <p data-i18n="exampleStarterBody">buildCoreToolkit()で2台分の接続UIを作り、センサー値と歩容値をライブ表示します。自分のアプリの土台としてコピーできます。</p>
                 </div>
-                <strong data-i18n="exampleStarterCta">Open starter</strong>
+                <strong data-i18n="exampleStarterCta">スターターを開く</strong>
               </div>
             </a>
             <a class="example-link core" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/FOOT-ANGLE/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/foot-angle.png" alt="Foot angle example screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleFootAngleTag">Gait analysis</span>
+                <span data-i18n="exampleFootAngleTag">歩容解析</span>
                 <div>
                   <h3>FOOT ANGLE</h3>
-                  <p data-i18n="exampleFootAngleBody">Visualize the foot angle at ground contact for each step, using the on-device step analysis stream.</p>
+                  <p data-i18n="exampleFootAngleBody">デバイス内の歩容解析ストリームを使って、1歩ごとの接地時の足部角度を可視化します。</p>
                 </div>
-                <strong data-i18n="exampleFootAngleCta">Open foot angle</strong>
+                <strong data-i18n="exampleFootAngleCta">足部角度を開く</strong>
               </div>
             </a>
             <a class="example-link core" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/PRONATION/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/pronation.png" alt="Pronation example screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="examplePronationTag">Gait analysis</span>
+                <span data-i18n="examplePronationTag">歩容解析</span>
                 <div>
                   <h3>PRONATION</h3>
-                  <p data-i18n="examplePronationBody">Show pronation per step as a gauge. A compact reference for running-form feedback tools.</p>
+                  <p data-i18n="examplePronationBody">1歩ごとのプロネーションをゲージで表示します。ランニングフォームのフィードバックツールの小さなリファレンスです。</p>
                 </div>
-                <strong data-i18n="examplePronationCta">Open pronation</strong>
+                <strong data-i18n="examplePronationCta">プロネーションを開く</strong>
               </div>
             </a>
             <a class="example-link core" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/GAME-HURDLE/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/hurdle-110m.png" alt="110m hurdles game screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleHurdleTag">Virtual sports</span>
+                <span data-i18n="exampleHurdleTag">バーチャルスポーツ</span>
                 <div>
                   <h3>110m HURDLES</h3>
-                  <p data-i18n="exampleHurdleBody">Run in place with two COREs to sprint and jump over hurdles. A full game loop built on step analysis and motion data.</p>
+                  <p data-i18n="exampleHurdleBody">CORE 2台でその場で走ってハードルを跳びます。歩容解析とモーションデータで作った本格的なゲームループです。</p>
                 </div>
-                <strong data-i18n="exampleHurdleCta">Play hurdles</strong>
+                <strong data-i18n="exampleHurdleCta">ハードルで遊ぶ</strong>
               </div>
             </a>
             <a class="example-link core" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/GAME-PINGPONG/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/pingpong.png" alt="Ping pong game screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="examplePingpongTag">Playable app</span>
+                <span data-i18n="examplePingpongTag">遊べるアプリ</span>
                 <div>
                   <h3>PINGPONG</h3>
-                  <p data-i18n="examplePingpongBody">Swing your foot to return the ball. Uses angular velocity for hit detection and timing.</p>
+                  <p data-i18n="examplePingpongBody">足を振ってボールを打ち返します。角速度でヒット判定とタイミングを取ります。</p>
                 </div>
-                <strong data-i18n="examplePingpongCta">Play pingpong</strong>
+                <strong data-i18n="examplePingpongCta">ピンポンで遊ぶ</strong>
               </div>
             </a>
           </div>
@@ -1508,73 +1515,73 @@
         <div class="example-group">
           <div class="data-group-head">
             <span class="device-badge insole">ORPHE INSOLE</span>
-            <h3 data-i18n="insoleExamplesTitle">Pressure and balance with INSOLE</h3>
+            <h3 data-i18n="insoleExamplesTitle">INSOLEで圧力とバランスを扱う</h3>
           </div>
           <div class="example-grid">
             <a class="example-link insole" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/showcase/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-showcase.jpg" alt="Showcase screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleShowcaseTag">Guided tour</span>
+                <span data-i18n="exampleShowcaseTag">ガイドツアー</span>
                 <div>
                   <h3>Showcase</h3>
-                  <p data-i18n="exampleShowcaseBody">Product specs, 6ch pressure heatmap, IMU charts, quaternion 3D view, CSV recording, and code snippets. Works without a device (demo playback).</p>
+                  <p data-i18n="exampleShowcaseBody">製品仕様、6ch圧力ヒートマップ、IMUチャート、クォータニオン3D表示、CSV収録、コードスニペット。デバイスなしでもデモ再生で動きます。</p>
                 </div>
-                <strong data-i18n="exampleShowcaseCta">Open showcase</strong>
+                <strong data-i18n="exampleShowcaseCta">ショーケースを開く</strong>
               </div>
             </a>
             <a class="example-link insole" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/gait-report/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-gait-report.svg" alt="Gait report example screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleGaitReportTag">Gait report</span>
+                <span data-i18n="exampleGaitReportTag">歩容レポート</span>
                 <div>
                   <h3>Gait Report</h3>
-                  <p data-i18n="exampleGaitReportBody">Record 20 steps per foot and build a live-updating gait report with mean ± SD, left/right asymmetry, variability, and foot-strike breakdown.</p>
+                  <p data-i18n="exampleGaitReportBody">片足20歩を記録し、平均±SD、左右非対称性、ばらつき、接地パターン内訳のレポートをリアルタイムに作ります。</p>
                 </div>
-                <strong data-i18n="exampleGaitReportCta">Open gait report</strong>
+                <strong data-i18n="exampleGaitReportCta">歩容レポートを開く</strong>
               </div>
             </a>
             <a class="example-link insole" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/calibrated-pressure/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-calibrated-pressure.svg" alt="Calibrated Pressure diagram" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleCalibratedPressureTag">Load in newtons</span>
+                <span data-i18n="exampleCalibratedPressureTag">ニュートン換算</span>
                 <div>
                   <h3>Calibrated Pressure</h3>
-                  <p data-i18n="exampleCalibratedPressureBody">A minimal sample that charts all six pressure channels as load in newtons, using the calibration values read from each insole on connect.</p>
+                  <p data-i18n="exampleCalibratedPressureBody">6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合は固定式で換算します。</p>
                 </div>
-                <strong data-i18n="exampleCalibratedPressureCta">Open load chart</strong>
+                <strong data-i18n="exampleCalibratedPressureCta">荷重チャートを開く</strong>
               </div>
             </a>
             <a class="example-link insole" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/fifo-guide/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-fifo-guide.svg" alt="FIFO Guide diagram" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleFifoGuideTag">Buffered recording</span>
+                <span data-i18n="exampleFifoGuideTag">バッファ収録</span>
                 <div>
                   <h3>FIFO Guide</h3>
-                  <p data-i18n="exampleFifoGuideBody">Start here for FIFO: how it differs from realtime, why the device buffer holds about 30 seconds, and how to check serial continuity before exporting CSV.</p>
+                  <p data-i18n="exampleFifoGuideBody">FIFOの入口。リアルタイムとの違い、デバイスバッファが約30秒である理由、CSV出力前のシリアル連続性の確認方法を学べます。</p>
                 </div>
-                <strong data-i18n="exampleFifoGuideCta">Open FIFO guide</strong>
+                <strong data-i18n="exampleFifoGuideCta">FIFOガイドを開く</strong>
               </div>
             </a>
             <a class="example-link insole" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/balance-sway/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-balance-sway.jpg" alt="Balance Sway screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleSwayTag">Balance</span>
+                <span data-i18n="exampleSwayTag">バランス</span>
                 <div>
                   <h3>Balance Sway</h3>
-                  <p data-i18n="exampleSwayBody">Center-of-pressure trajectory, sway metrics, and left/right weight bearing with a built-in demo stream. Not a medical device.</p>
+                  <p data-i18n="exampleSwayBody">圧力中心の軌跡、動揺指標、左右荷重をデモストリーム付きで表示します。医療機器ではありません。</p>
                 </div>
-                <strong data-i18n="exampleSwayCta">Open sway lab</strong>
+                <strong data-i18n="exampleSwayCta">動揺ラボを開く</strong>
               </div>
             </a>
             <a class="example-link insole" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/music-shoe/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-music-shoe.jpg" alt="Music Shoe screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleMusicShoeTag">Gesture instrument</span>
+                <span data-i18n="exampleMusicShoeTag">ジェスチャー楽器</span>
                 <div>
                   <h3>Music Shoe</h3>
-                  <p data-i18n="exampleMusicShoeBody">Hold the insole in your hand and play it: orientation-gated hits, loop station, and a gesture-recording lab. Playable with mouse/keyboard too.</p>
+                  <p data-i18n="exampleMusicShoeBody">インソールを手に持って演奏します。姿勢でゲートするヒット、ループステーション、ジェスチャー記録ラボ。マウスやキーボードでも遊べます。</p>
                 </div>
-                <strong data-i18n="exampleMusicShoeCta">Open instrument</strong>
+                <strong data-i18n="exampleMusicShoeCta">楽器を開く</strong>
               </div>
             </a>
           </div>
@@ -1583,74 +1590,74 @@
         <div class="example-group">
           <div class="data-group-head">
             <span class="device-badge">CORE + INSOLE</span>
-            <h3 data-i18n="bothExamplesTitle">Works with either device</h3>
-            <p data-i18n="bothExamplesBody">These examples let you choose CORE or INSOLE per slot, so the same page runs with whichever hardware you have.</p>
+            <h3 data-i18n="bothExamplesTitle">どちらのデバイスでも動く</h3>
+            <p data-i18n="bothExamplesBody">スロットごとにCOREかINSOLEかを選べるので、手元にあるハードウェアで同じページが動きます。</p>
           </div>
           <div class="example-grid">
             <a class="example-link both" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/VISUALIZE/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/visualize.png" alt="VISUALIZE screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleVisualizeTag">Starter</span>
+                <span data-i18n="exampleVisualizeTag">スターター</span>
                 <div>
                   <h3>VISUALIZE</h3>
-                  <p data-i18n="exampleVisualizeBody">Realtime charts of acceleration, gyro, and (for INSOLE) pressure for up to two devices. The recommended first look at your data.</p>
+                  <p data-i18n="exampleVisualizeBody">最大2台の加速度・角速度（INSOLEなら圧力も）をリアルタイムにグラフ化します。データを最初に眺めるのにおすすめです。</p>
                 </div>
-                <strong data-i18n="exampleVisualizeCta">Open charts</strong>
+                <strong data-i18n="exampleVisualizeCta">チャートを開く</strong>
               </div>
             </a>
             <a class="example-link both" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/SENSOR-DASHBOARD/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/SENSOR-DASHBOARD/data-viewer.gif" alt="Sensor Dashboard screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleDashboardTag">Live demo</span>
+                <span data-i18n="exampleDashboardTag">ライブデモ</span>
                 <div>
                   <h3>Sensor Dashboard</h3>
-                  <p data-i18n="exampleDashboardBody">Connect one or two devices and inspect every field, quaternion orientation, and left/right assignment on one screen.</p>
+                  <p data-i18n="exampleDashboardBody">1台または2台をつなぎ、すべてのフィールド、クォータニオン姿勢、左右の割り当てを1画面で確認します。</p>
                 </div>
-                <strong data-i18n="exampleDashboardCta">Open dashboard</strong>
+                <strong data-i18n="exampleDashboardCta">ダッシュボードを開く</strong>
               </div>
             </a>
             <a class="example-link both" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/TERMINAL/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-terminal.jpg" alt="Terminal screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleTerminalTag">Raw stream</span>
+                <span data-i18n="exampleTerminalTag">Rawストリーム</span>
                 <div>
                   <h3>Terminal</h3>
-                  <p data-i18n="exampleTerminalBody">Read and write BLE characteristics, watch raw notification bytes, and export captured values.</p>
+                  <p data-i18n="exampleTerminalBody">BLEキャラクタリスティックの読み書き、通知の生バイト表示、取得値のエクスポートができます。</p>
                 </div>
-                <strong data-i18n="exampleTerminalCta">Open terminal</strong>
+                <strong data-i18n="exampleTerminalCta">ターミナルを開く</strong>
               </div>
             </a>
             <a class="example-link both" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/UDON/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/udon.png" alt="UDON stepping game screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleUdonTag">Game</span>
+                <span data-i18n="exampleUdonTag">ゲーム</span>
                 <div>
                   <h3>UDON</h3>
-                  <p data-i18n="exampleUdonBody">Knead udon dough by stepping in place. Rates every step for strength, left/right balance, and pace, with CORE or INSOLE on each foot.</p>
+                  <p data-i18n="exampleUdonBody">その場で足踏みしてうどんをこねます。足ごとにCOREかINSOLEを使い、1歩ごとの強さ・左右バランス・ペースを採点します。</p>
                 </div>
-                <strong data-i18n="exampleUdonCta">Open the game</strong>
+                <strong data-i18n="exampleUdonCta">ゲームを開く</strong>
               </div>
             </a>
             <a class="example-link both" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/ddr.png" alt="Example gallery" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleGalleryTag">All examples</span>
+                <span data-i18n="exampleGalleryTag">すべてのサンプル</span>
                 <div>
-                  <h3 data-i18n="exampleGalleryTitle">Example Gallery</h3>
-                  <p data-i18n="exampleGalleryBody">Browse every example by category, device (CORE / INSOLE), difficulty, and keyword: games, virtual sports, research tools, and more.</p>
+                  <h3 data-i18n="exampleGalleryTitle">サンプルギャラリー</h3>
+                  <p data-i18n="exampleGalleryBody">カテゴリ、デバイス（CORE / INSOLE）、難易度、キーワードで全サンプルを探せます。ゲーム、バーチャルスポーツ、研究ツールなど。</p>
                 </div>
-                <strong data-i18n="exampleGalleryCta">Browse the gallery</strong>
+                <strong data-i18n="exampleGalleryCta">ギャラリーを見る</strong>
               </div>
             </a>
             <a class="example-link both" href="api_doc/">
               <img class="example-thumb" src="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/_thumbnails/insole-docs.jpg" alt="API Documentation screenshot" loading="lazy" width="640" height="400">
               <div class="example-body">
-                <span data-i18n="exampleDocsTag">Reference</span>
+                <span data-i18n="exampleDocsTag">リファレンス</span>
                 <div>
-                  <h3 data-i18n="exampleDocsTitle">API Documentation</h3>
-                  <p data-i18n="exampleDocsBody">Browse the generated TypeDoc for OrpheCoreInsole, profiles, commands, recording helpers, and the toolkit functions.</p>
+                  <h3 data-i18n="exampleDocsTitle">APIドキュメント</h3>
+                  <p data-i18n="exampleDocsBody">OrpheCoreInsole、プロファイル、コマンド、収録ヘルパー、toolkit関数のTypeDocを参照できます。</p>
                 </div>
-                <strong data-i18n="exampleDocsCta">Read docs</strong>
+                <strong data-i18n="exampleDocsCta">ドキュメントを読む</strong>
               </div>
             </a>
           </div>
@@ -1662,8 +1669,8 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="migrationEyebrow">ORPHE-CORE.js / ORPHE-INSOLE.js から移行する</p>
-          <h2 data-i18n="migrationTitle">Existing code keeps working. New code uses one class.</h2>
-          <p class="lead" data-i18n-html="migrationLead">旧ライブラリの <code>Orphe</code> / <code>OrpheInsole</code> は互換クラスとして同名のグローバルに残っているので、<code>&lt;script&gt;</code> のURLを差し替えるだけで既存のサンプルやアプリが動きます。新しく書くコードでは次の対応で <code>OrpheCoreInsole</code> を使ってください。</p>
+          <h2 data-i18n="migrationTitle">既存APIの使い方に合わせて移行する。</h2>
+          <p class="lead" data-i18n-html="migrationLead"><code>new Orphe()</code> / <code>new OrpheInsole()</code> を直接使う場合は同名の互換グローバルを利用できます。v0.2.0以降のtoolkitが作る <code>cores</code> / <code>insoles</code> / <code>orpheCore</code> は <code>OrpheCoreInsole</code> です。<code>on()</code> / <code>onEvent()</code> へ移行するか、旧コールバックに <code>attachLegacyCallbacks()</code> を使ってください。scriptのURL差し替えだけで全アプリが移行できるわけではないため、READMEの対応表も確認してください。</p>
         </div>
         <table class="migration-table">
           <thead>
@@ -1679,7 +1686,7 @@
             </tr>
             <tr>
               <td><code>ble.setup()</code></td>
-              <td data-i18n="migrationSetupNew">Not needed</td>
+              <td data-i18n="migrationSetupNew">不要</td>
             </tr>
             <tr>
               <td><code>ble.gotAcc = (acc) =&gt; {…}</code></td>
@@ -1711,29 +1718,29 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="buildEyebrow">作れるもの</p>
-          <h2 data-i18n="buildTitle">Prototype around the use cases CORE and INSOLE are built for.</h2>
+          <h2 data-i18n="buildTitle">COREとINSOLEが想定する用途の周辺をプロトタイプ化できます。</h2>
           <p class="lead" data-i18n="buildLead">COREの動き・歩容データはゲームや身体表現、INSOLEの足裏圧はバランスや荷重の分析に向いています。両方をつなげば、動きと接地を同時に観察するリサーチツールも作れます。</p>
         </div>
         <div class="build-grid">
           <div class="tile">
             <span class="tag" data-i18n="buildSportsTag">スポーツ・ゲーム</span>
-            <h3 data-i18n="buildSportsTitle">Body-controlled games and sports</h3>
-            <p data-i18n="buildSportsBody">Run, jump, kick, and swing with foot motion as the controller: virtual sports, rhythm games, and training feedback.</p>
+            <h3 data-i18n="buildSportsTitle">身体で操作するゲームとスポーツ</h3>
+            <p data-i18n="buildSportsBody">走る、跳ぶ、蹴る、振る。足の動きをコントローラーにしたバーチャルスポーツ、リズムゲーム、トレーニングのフィードバック。</p>
           </div>
           <div class="tile">
             <span class="tag" data-i18n="buildResearchTag">研究</span>
-            <h3 data-i18n="buildResearchTitle">Biomechanics datasets</h3>
-            <p data-i18n="buildResearchBody">Record synchronized motion, gait, and pressure streams for validation, exploratory analysis, and AI dataset creation.</p>
+            <h3 data-i18n="buildResearchTitle">バイオメカニクスのデータセット</h3>
+            <p data-i18n="buildResearchBody">同期したモーション・歩容・圧力ストリームを記録し、検証、探索的分析、AIデータセットの作成に使えます。</p>
           </div>
           <div class="tile">
             <span class="tag" data-i18n="buildSafetyTag">安全管理</span>
-            <h3 data-i18n="buildSafetyTitle">Work-safety inspection</h3>
-            <p data-i18n="buildSafetyBody">Explore fall, slip, trip, and fatigue-related motion signals before connecting them to larger safety systems.</p>
+            <h3 data-i18n="buildSafetyTitle">労働安全の点検</h3>
+            <p data-i18n="buildSafetyBody">転倒、スリップ、つまずき、疲労に関わる動作信号を、より大きな安全システムにつなぐ前に探索できます。</p>
           </div>
           <div class="tile">
             <span class="tag" data-i18n="buildToolsTag">ツール</span>
-            <h3 data-i18n="buildToolsTitle">Device inspection</h3>
-            <p data-i18n="buildToolsBody">Build dashboards for device state, packet health, left/right assignment, and data stream debugging.</p>
+            <h3 data-i18n="buildToolsTitle">デバイス点検</h3>
+            <p data-i18n="buildToolsBody">デバイス状態、パケットの健全性、左右の割り当て、データストリームのデバッグ用ダッシュボードを作れます。</p>
           </div>
         </div>
       </div>
@@ -1744,10 +1751,8 @@
         <div class="notice">
           <div>
             <p class="eyebrow" data-i18n="noticeEyebrow">Beta notice</p>
-            <h2 data-i18n="noticeTitle">ORPHE-CORE-INSOLE.js is currently provided as a beta library.</h2>
-            <p data-i18n="noticeBody">
-              Documentation and tutorials are still being improved. Web Bluetooth requires Chrome or Edge (desktop / Android). Safari and Firefox are not supported; on iOS, use a Web Bluetooth browser such as Bluefy.
-            </p>
+            <h2 data-i18n="noticeTitle">ORPHE-CORE-INSOLE.jsは現在ベータ版として提供しています。</h2>
+            <p data-i18n="noticeBody">ドキュメントとチュートリアルは整備中です。Web BluetoothにはChromeまたはEdge（デスクトップ / Android）が必要です。SafariとFirefoxは非対応で、iOSではBluefyなどのWeb Bluetooth対応ブラウザを使ってください。</p>
           </div>
           <a class="button primary" href="https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/issues" data-i18n="noticeCta">フィードバックを送る</a>
         </div>
@@ -1758,29 +1763,29 @@
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="termsEyebrow">利用方針</p>
-          <h2 data-i18n="termsTitle">Free for education, research, prototypes, and non-commercial apps. Commercial use requires a separate agreement.</h2>
+          <h2 data-i18n="termsTitle">教育・研究・試作・非商用アプリは無償利用。有料・商用利用は別途契約が必要です。</h2>
           <p class="lead" data-i18n="termsLead">ORPHE-CORE.js / ORPHE-INSOLE.jsの方針に従い、ORPHE-CORE-INSOLE.jsは教育・ワークショップ、大学・研究機関などでの非商用研究、個人制作、試作・社内検証、ORPHE CORE / INSOLEを使った無償アプリ・非商用サービスについて、改変を含めて無償で利用できる方針です。</p>
         </div>
         <div class="data-grid">
           <div class="tile">
             <span class="tag" data-i18n="termsFreeTag">無償利用</span>
-            <h3 data-i18n="termsLicenseTitle">Free use</h3>
-            <p data-i18n="termsLicenseBody">Education/workshops, academic non-commercial research, personal creative projects, prototypes/internal experiments, and free non-commercial services are allowed.</p>
+            <h3 data-i18n="termsLicenseTitle">無償で使える範囲</h3>
+            <p data-i18n="termsLicenseBody">教育・ワークショップ、大学・研究機関での非商用研究、個人制作、試作・社内検証、無償の非商用サービスでの利用を認めています。</p>
           </div>
           <div class="tile">
             <span class="tag" data-i18n="termsNoticeTag">商用契約</span>
-            <h3 data-i18n="termsNoticeTitle">Commercial use</h3>
-            <p data-i18n="termsNoticeBody">Paid apps, paid services, commercial SDK integrations, commissioned products, or business services require a separate commercial agreement with ORPHE.</p>
+            <h3 data-i18n="termsNoticeTitle">商用利用</h3>
+            <p data-i18n="termsNoticeBody">有料アプリ、有料サービス、商用SDK組み込み、受託製品、事業サービスには、ORPHEとの別途商用契約が必要です。</p>
           </div>
           <div class="tile">
             <span class="tag" data-i18n="termsWarrantyTag">適用範囲</span>
-            <h3 data-i18n="termsWarrantyTitle">Version scope</h3>
-            <p data-i18n="termsWarrantyBody">This page follows the ORPHE-CORE.js v1.4.0 and later policy. All releases of ORPHE-CORE-INSOLE.js use the same usage policy. See LICENSE.md in the repository.</p>
+            <h3 data-i18n="termsWarrantyTitle">バージョンの範囲</h3>
+            <p data-i18n="termsWarrantyBody">このページはORPHE-CORE.js v1.4.0以降の方針に従います。ORPHE-CORE-INSOLE.jsのすべてのリリースは同じ利用方針です。詳細はリポジトリのLICENSE.mdを参照してください。</p>
           </div>
           <div class="tile">
             <span class="tag" data-i18n="termsCopyrightTag">著作権</span>
-            <h3 data-i18n="termsCopyrightTitle">Copyright and licensing</h3>
-            <p data-i18n="termsCopyrightBody">Copyright (C) 2025, Tetsuaki BABA and ORPHE Inc. See the usage policy for allowed uses and commercial agreement requirements.</p>
+            <h3 data-i18n="termsCopyrightTitle">著作権とライセンス</h3>
+            <p data-i18n="termsCopyrightBody">Copyright (C) 2025–2026, Tetsuaki BABA and ORPHE Inc. 許可される用途と商用契約の要件は利用方針を参照してください。</p>
           </div>
         </div>
       </div>
@@ -1789,7 +1794,7 @@
 
   <footer>
     <div class="footer-inner">
-      <span data-i18n="footerCopyright">Copyright (C) 2025, Tetsuaki BABA and ORPHE Inc.</span>
+      <span data-i18n="footerCopyright">Copyright (C) 2025–2026, Tetsuaki BABA and ORPHE Inc.</span>
       <div class="footer-links">
         <a href="https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js">GitHub</a>
         <a href="https://orphe.io/">orphe.io</a>
@@ -1829,10 +1834,10 @@
         aboutLead: "ORPHE-CORE-INSOLE.js merges ORPHE-CORE.js and ORPHE-INSOLE.js into one SDK. Connection, reconnection, subscriptions, recording, and device commands share the same API, so code written for CORE moves to INSOLE (and back) with almost no changes.",
         feature1Title: "One class, two profiles, automatic detection",
         feature1Body: "Create <code>new OrpheCoreInsole({ profile: coreProfile() })</code> or <code>insoleProfile()</code>. Omit the profile and the SDK shows both devices in the chooser and detects the type from the device name.",
-        feature2Title: "Reconnect, lossless FIFO recording, gait analysis",
-        feature2Body: "Automatic reconnection to remembered devices, FIFO recording with CSV export, insole gait analysis, cross-tab connection sharing, and a simulator for development without hardware.",
+        feature2Title: "Reconnect, FIFO recording, gait analysis",
+        feature2Body: "Enable automatic reconnection with autoReconnect: true and cross-tab sharing with useSharedBridge: true. FIFO capture requires supported firmware. INSOLE also has gait analysis and a simulator.",
         feature3Title: "Compatible with the previous libraries",
-        feature3Body: "Existing <code>new Orphe(0)</code> / <code>new OrpheInsole(0)</code> code with <code>got*</code> callbacks keeps working. Migrate to the new API at your own pace.",
+        feature3Body: "Compatibility classes <code>Orphe</code> / <code>OrpheInsole</code> retain <code>got*</code> callbacks. Toolkit-created instances use the new API; use <code>on()</code> or <code>attachLegacyCallbacks()</code> when migrating.",
         productEyebrow: "Supported devices",
         productTitle: "Two devices, one SDK: pick the sensor that fits your idea.",
         productLead: "ORPHE CORE clips onto your shoes to capture motion; ORPHE INSOLE replaces the insole to measure foot pressure as well. Choose one for your use case, or connect both at once: the code stays the same.",
@@ -1841,7 +1846,7 @@
         coreLead: "ORPHE CORE is a 6-axis IMU sensor worn on the foot with a shoelace mount or dedicated shoes. Besides raw sensor values, it computes gait analysis on the device, including step count, gait type, stride, and pronation.",
         coreSpecSensorsTag: "Sensors",
         coreSpecSensorsTitle: "6-axis IMU + on-device gait analysis",
-        coreSpecSensorsBody: "3-axis acceleration and 3-axis gyroscope, with step analysis computed on the module at up to 200 Hz.",
+        coreSpecSensorsBody: "3-axis acceleration and 3-axis gyroscope, sampled at up to 200 Hz on CORE 3.0. Gait events are delivered per step.",
         coreSpecRangeTag: "Range",
         coreSpecRangeBody: "Selectable acceleration and gyroscope ranges via the SDK.",
         coreSpecSizeTag: "Form",
@@ -1885,9 +1890,9 @@
         coreDataControlTitle: "Device control",
         coreDataControlBody: "Full-color LED patterns and brightness, mount position, sensor range, attitude reset, and device information read / write.",
         insoleDataTitle: "Pressure, motion, and orientation",
-        insoleDataBody: "One <code>SENSOR_VALUES</code> mode; <code>streamingMode</code> 1 / 3 / 4 selects which fields arrive.",
+        insoleDataBody: "The real-time sensor stream uses <code>SENSOR_VALUES</code>; <code>streamingMode</code> 1 / 3 / 4 selects its fields. Gait analysis and FIFO recording use separate acquisition paths.",
         insoleDataPressureTitle: "Pressure values",
-        insoleDataPressureBody: "Six raw pressure channels per foot, plus calibrated load in newtons for balance, loading, and contact timing.",
+        insoleDataPressureBody: "Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise a fixed formula.",
         insoleDataAccTitle: "Acceleration",
         insoleDataAccBody: "Converted XYZ acceleration for movement intensity, step timing, and interaction design.",
         insoleDataGyroTitle: "Angular velocity",
@@ -1903,23 +1908,26 @@
         commonDataLifecycleTitle: "Lifecycle events",
         commonDataLifecycleBody: "Connect, disconnect, errors, and reconnect progress. Subscribe as many times as you like; each call returns an unsubscribe function.",
         commonDataRecordTitle: "Recording helpers",
-        commonDataRecordBody: "Lossless FIFO capture from the device buffer and per-step gait rows, both with CSV download.",
-        commonDataSimTitle: "Simulator",
-        commonDataSimBody: "Develop without hardware: a virtual INSOLE that goes through the same parsing path as a real device.",
+        commonDataRecordBody: "FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260905 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.",
+        insoleDataGaitTitle: "INSOLE gait analysis",
+        insoleDataGaitBody: "InsoleGait records per-step gait rows from INSOLE and exports CSV.",
+        insoleDataSimTitle: "Simulator",
+        insoleDataSimBody: "Develop without hardware: a virtual INSOLE that goes through the same parsing path as a real device.",
         quickEyebrow: "Quick start",
         quickTitle: "Connect either device and print live data.",
-        quickLead: "Load the CDN build and take <code>OrpheCoreInsole</code> from <code>OrpheCoreInsoleJS</code>. Omit the profile and the chooser lists both CORE and INSOLE; the SDK detects which one you picked.",
+        quickLead: "Serve this page over HTTPS or localhost in a Web Bluetooth-capable browser. Load the CDN build and get <code>OrpheCoreInsole</code> from <code>OrpheCoreInsoleJS</code>. With no profile specified, the chooser lists both CORE and INSOLE and detects the selected type.",
         quickDashboard: "Try the Sensor Dashboard",
         quickTerminal: "Open the Terminal",
         modeHeaderDevice: "Device",
         modeHeaderMode: "begin() type / option",
         modeHeaderData: "Data stream",
         coreModeSensorBody: "Raw acceleration, gyro, quaternion at 50–200 Hz.",
-        coreModeStepBody: "Per-step gait results (about 30 Hz). Default when the type is omitted.",
+        coreModeStepBody: "Gait events are delivered when the step count increases; their timing differs from the packet notification rate. Default when the type is omitted.",
         coreModeBothBody: "Both streams at once.",
-        insoleMode4Body: "Gyro, acceleration, pressure, quaternion. Default.",
-        insoleMode3Body: "Gyro, acceleration, pressure.",
-        insoleMode1Body: "Orientation only, for compatibility tests.",
+        insoleMode4Body: "Gyro, acceleration, pressure, quaternion. 100 Hz sampling, 50 Hz packets. Default.",
+        insoleMode3Body: "Gyro, acceleration, pressure. 200 Hz sampling, 50 Hz packets; no quaternion.",
+        insoleMode1Body: "Quaternion, acceleration, gyro. 200 Hz sampling, 50 Hz packets; no pressure.",
+        quickCoreGait: "For CORE gait analysis, replace the common example’s script with the following. Use STEP_ANALYSIS_AND_SENSOR_VALUES when both streams are needed.",
         quickToolkit: "Need a connect toggle and a settings modal? Also load <code>orphe-core-insole-toolkit.js</code> and build the UI with <code>buildCoreToolkit()</code> / <code>buildInsoleToolkit()</code> (requires Bootstrap 5).",
         quickResources: "References: <a href=\"api_doc/\">API reference (TypeDoc)</a> / <a href=\"https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js#使い方\">Usage in the README</a> / <a href=\"https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/tags\">Release tags</a>.",
         examplesEyebrow: "Try the examples",
@@ -1952,7 +1960,7 @@
         exampleGaitReportBody: "Record 20 steps per foot and build a live-updating gait report with mean ± SD, left/right asymmetry, variability, and foot-strike breakdown.",
         exampleGaitReportCta: "Open gait report",
         exampleCalibratedPressureTag: "Load in newtons",
-        exampleCalibratedPressureBody: "A minimal sample that charts all six pressure channels as load in newtons, using the calibration values read from each insole on connect.",
+        exampleCalibratedPressureBody: "Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise a fixed conversion formula.",
         exampleCalibratedPressureCta: "Open load chart",
         exampleFifoGuideTag: "Buffered recording",
         exampleFifoGuideBody: "Start here for FIFO: how it differs from realtime, why the device buffer holds about 30 seconds, and how to check serial continuity before exporting CSV.",
@@ -1986,8 +1994,8 @@
         exampleDocsBody: "Browse the generated TypeDoc for OrpheCoreInsole, profiles, commands, recording helpers, and the toolkit functions.",
         exampleDocsCta: "Read docs",
         migrationEyebrow: "Migrating from ORPHE-CORE.js / ORPHE-INSOLE.js",
-        migrationTitle: "Existing code keeps working. New code uses one class.",
-        migrationLead: "The previous <code>Orphe</code> / <code>OrpheInsole</code> classes remain as compatibility globals, so existing examples and apps run after swapping the <code>&lt;script&gt;</code> URL. For new code, use <code>OrpheCoreInsole</code> with the mapping below.",
+        migrationTitle: "Choose the migration path for your existing API.",
+        migrationLead: "Direct users of <code>new Orphe()</code> / <code>new OrpheInsole()</code> can use the compatibility globals. Since v0.2.0, toolkit-created <code>cores</code> / <code>insoles</code> / <code>orpheCore</code> are <code>OrpheCoreInsole</code> instances: migrate to <code>on()</code> / <code>onEvent()</code>, or use <code>attachLegacyCallbacks()</code> for old callbacks. Replacing script URLs alone does not migrate every app; check the README migration table.",
         migrationHeaderOld: "ORPHE-CORE.js / ORPHE-INSOLE.js",
         migrationHeaderNew: "ORPHE-CORE-INSOLE.js",
         migrationSetupNew: "Not needed",
@@ -2027,8 +2035,8 @@
         termsWarrantyBody: "This page follows the ORPHE-CORE.js v1.4.0 and later policy. All releases of ORPHE-CORE-INSOLE.js use the same usage policy. See LICENSE.md in the repository.",
         termsCopyrightTag: "Copyright",
         termsCopyrightTitle: "Copyright and licensing",
-        termsCopyrightBody: "Copyright (C) 2025, Tetsuaki BABA and ORPHE Inc. See the usage policy for allowed uses and commercial agreement requirements.",
-        footerCopyright: "Copyright (C) 2025, Tetsuaki BABA and ORPHE Inc."
+        termsCopyrightBody: "Copyright (C) 2025–2026, Tetsuaki BABA and ORPHE Inc. See the usage policy for allowed uses and commercial agreement requirements.",
+        footerCopyright: "Copyright (C) 2025–2026, Tetsuaki BABA and ORPHE Inc."
       },
       ja: {
         metaTitle: "ORPHE-CORE-INSOLE.js | ORPHE CORE / ORPHE INSOLE 共通 JavaScript SDK",
@@ -2059,10 +2067,10 @@
         aboutLead: "ORPHE-CORE.jsとORPHE-INSOLE.jsを統合した共通SDKです。接続、再接続、購読、収録、デバイスコマンドを同じAPIで扱えるので、CORE向けに書いたコードをINSOLEへ、あるいはその逆へ、ほとんど変更なしに持ち運べます。",
         feature1Title: "1つのクラス、2つのプロファイル、自動判別",
         feature1Body: "<code>new OrpheCoreInsole({ profile: coreProfile() })</code> または <code>insoleProfile()</code> で作ります。プロファイルを省略すると接続ダイアログに両方のデバイスが出て、デバイス名から種別を自動判別します。",
-        feature2Title: "自動再接続、FIFOロスレス収録、歩容解析",
-        feature2Body: "記憶したデバイスへの自動再接続、CSV出力付きのFIFO収録、INSOLEの歩容解析、タブ間の接続共有、実機なしで開発できるシミュレータを備えています。",
+        feature2Title: "再接続、FIFO収録、歩容解析",
+        feature2Body: "autoReconnect: true で自動再接続、useSharedBridge: true でタブ間共有を有効にできます。FIFO収録には対応FWが必要です。INSOLE向けの歩容解析とシミュレータも備えています。",
         feature3Title: "旧ライブラリとの互換性",
-        feature3Body: "既存の <code>new Orphe(0)</code> / <code>new OrpheInsole(0)</code> と <code>got*</code> コールバックのコードはそのまま動きます。新APIへの移行は自分のペースで進められます。",
+        feature3Body: "互換クラス <code>Orphe</code> / <code>OrpheInsole</code> は <code>got*</code> コールバックを保持します。toolkitが作るインスタンスは新APIなので、移行時は <code>on()</code> または <code>attachLegacyCallbacks()</code> を使います。",
         productEyebrow: "対応製品",
         productTitle: "2つのデバイス、1つのSDK。アイデアに合うセンサーを選べます。",
         productLead: "足の甲や靴ひもに装着して動きを捉えるORPHE COREと、中敷きとして足裏圧まで計測するORPHE INSOLE。用途に合わせて選んでも、両方を同時につないでも、同じコードで扱えます。",
@@ -2071,7 +2079,7 @@
         coreLead: "ORPHE COREは、靴ひもに取り付けるシューレースマウントや対応シューズで足に装着する6軸IMUセンサーです。生のセンサー値に加えて、歩数・歩容タイプ・ストライド・プロネーションなどの歩容解析結果をデバイス側で計算して送ります。",
         coreSpecSensorsTag: "センサー",
         coreSpecSensorsTitle: "6軸IMU + デバイス内歩容解析",
-        coreSpecSensorsBody: "3軸加速度と3軸角速度。歩容解析はモジュール内で最大200Hzで計算されます。",
+        coreSpecSensorsBody: "3軸加速度・3軸角速度をCORE 3.0では最大200Hzでサンプリングします。歩容イベントは歩単位で配送します。",
         coreSpecRangeTag: "レンジ",
         coreSpecRangeBody: "加速度・角速度のレンジはSDKから切り替えられます。",
         coreSpecSizeTag: "形状",
@@ -2115,9 +2123,9 @@
         coreDataControlTitle: "デバイス制御",
         coreDataControlBody: "フルカラーLEDのパターンと明るさ、装着位置、センサーレンジ、姿勢リセット、デバイス情報の読み書き。",
         insoleDataTitle: "圧力、モーション、姿勢",
-        insoleDataBody: "<code>SENSOR_VALUES</code> の1モードで、<code>streamingMode</code> 1 / 3 / 4 により届くフィールドが変わります。",
+        insoleDataBody: "リアルタイムセンサーストリームは <code>SENSOR_VALUES</code> を使い、<code>streamingMode</code> 1 / 3 / 4 で届くフィールドを選びます。歩容解析・FIFO収録は別の取得方式です。",
         insoleDataPressureTitle: "圧力値",
-        insoleDataPressureBody: "片足6chの生の圧力値と、ニュートン換算した荷重。バランス、荷重、接地タイミングの分析に。",
+        insoleDataPressureBody: "片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合は固定式を使います。",
         insoleDataAccTitle: "加速度",
         insoleDataAccBody: "換算済みのXYZ加速度。動きの強さ、ステップのタイミング、インタラクション設計に。",
         insoleDataGyroTitle: "角速度",
@@ -2133,23 +2141,26 @@
         commonDataLifecycleTitle: "ライフサイクルイベント",
         commonDataLifecycleBody: "接続、切断、エラー、再接続の進行。何個でも購読でき、各呼び出しは解除関数を返します。",
         commonDataRecordTitle: "収録ヘルパー",
-        commonDataRecordBody: "デバイスバッファからのロスレスFIFO収録と、1歩ごとの歩容行。どちらもCSVをダウンロードできます。",
-        commonDataSimTitle: "シミュレータ",
-        commonDataSimBody: "実機なしで開発できます。実機と同じパース経路を通る仮想INSOLEです。",
+        commonDataRecordBody: "FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260905以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。",
+        insoleDataGaitTitle: "INSOLEの歩容解析",
+        insoleDataGaitBody: "InsoleGaitでINSOLEの1歩ごとの歩容行を記録し、CSVを出力できます。",
+        insoleDataSimTitle: "シミュレータ",
+        insoleDataSimBody: "実機なしで開発できます。実機と同じパース経路を通る仮想INSOLEです。",
         quickEyebrow: "クイックスタート",
         quickTitle: "どちらのデバイスでも接続して、ライブデータを表示する。",
-        quickLead: "CDNのビルドを読み込み、<code>OrpheCoreInsoleJS</code> から <code>OrpheCoreInsole</code> を取り出します。プロファイルを省略すると、接続ダイアログにCOREとINSOLEの両方が出て、選んだデバイスを自動判別します。",
+        quickLead: "Web Bluetooth対応ブラウザで、HTTPSまたはlocalhostから開いてください。CDNのビルドを読み込み、<code>OrpheCoreInsoleJS</code> から <code>OrpheCoreInsole</code> を取り出します。プロファイルを省略すると接続ダイアログにCOREとINSOLEの両方が出て、選んだデバイスを自動判別します。",
         quickDashboard: "Sensor Dashboardを試す",
         quickTerminal: "Terminalを開く",
         modeHeaderDevice: "デバイス",
         modeHeaderMode: "begin() の種別 / オプション",
         modeHeaderData: "データストリーム",
         coreModeSensorBody: "生の加速度・角速度・クォータニオンを50〜200Hzで。",
-        coreModeStepBody: "1歩ごとの歩容解析結果（約30Hz）。種別を省略したときの既定。",
+        coreModeStepBody: "歩数の増加に応じた歩容解析結果。通知パケットの頻度とは異なります。種別を省略したときの既定。",
         coreModeBothBody: "両方のストリームを同時に。",
-        insoleMode4Body: "角速度、加速度、圧力、クォータニオン。既定。",
-        insoleMode3Body: "角速度、加速度、圧力。",
-        insoleMode1Body: "姿勢のみ。互換性テスト用。",
+        insoleMode4Body: "角速度、加速度、圧力、クォータニオン。サンプリング100Hz、パケット送出50Hz。既定。",
+        insoleMode3Body: "角速度、加速度、圧力。サンプリング200Hz、パケット送出50Hz。クォータニオンなし。",
+        insoleMode1Body: "クォータニオン、加速度、角速度。サンプリング200Hz、パケット送出50Hz。圧力なし。",
+        quickCoreGait: "COREの歩容解析には、共通例のscript内を次のコードに置き換えます。センサー値も必要な場合はSTEP_ANALYSIS_AND_SENSOR_VALUESを指定します。",
         quickToolkit: "接続トグルと設定モーダルが欲しいときは <code>orphe-core-insole-toolkit.js</code> も読み込み、<code>buildCoreToolkit()</code> / <code>buildInsoleToolkit()</code> で接続UIを作れます（Bootstrap 5 が必要）。",
         quickResources: "詳細リファレンス: <a href=\"api_doc/\">APIリファレンス（TypeDoc）</a> / <a href=\"https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js#使い方\">README の使い方</a> / <a href=\"https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/tags\">リリースタグ一覧</a>。",
         examplesEyebrow: "サンプルで試す",
@@ -2182,7 +2193,7 @@
         exampleGaitReportBody: "片足20歩を記録し、平均±SD、左右非対称性、ばらつき、接地パターン内訳のレポートをリアルタイムに作ります。",
         exampleGaitReportCta: "歩容レポートを開く",
         exampleCalibratedPressureTag: "ニュートン換算",
-        exampleCalibratedPressureBody: "接続時に各インソールから読み取ったキャリブレーション値を使い、6chの圧力をニュートン単位の荷重でグラフ化する最小サンプルです。",
+        exampleCalibratedPressureBody: "6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合は固定式で換算します。",
         exampleCalibratedPressureCta: "荷重チャートを開く",
         exampleFifoGuideTag: "バッファ収録",
         exampleFifoGuideBody: "FIFOの入口。リアルタイムとの違い、デバイスバッファが約30秒である理由、CSV出力前のシリアル連続性の確認方法を学べます。",
@@ -2216,8 +2227,8 @@
         exampleDocsBody: "OrpheCoreInsole、プロファイル、コマンド、収録ヘルパー、toolkit関数のTypeDocを参照できます。",
         exampleDocsCta: "ドキュメントを読む",
         migrationEyebrow: "ORPHE-CORE.js / ORPHE-INSOLE.js から移行する",
-        migrationTitle: "既存のコードはそのまま動く。新しいコードは1つのクラスで。",
-        migrationLead: "旧ライブラリの <code>Orphe</code> / <code>OrpheInsole</code> は互換クラスとして同名のグローバルに残っているので、<code>&lt;script&gt;</code> のURLを差し替えるだけで既存のサンプルやアプリが動きます。新しく書くコードでは次の対応で <code>OrpheCoreInsole</code> を使ってください。",
+        migrationTitle: "既存APIの使い方に合わせて移行する。",
+        migrationLead: "<code>new Orphe()</code> / <code>new OrpheInsole()</code> を直接使う場合は同名の互換グローバルを利用できます。v0.2.0以降のtoolkitが作る <code>cores</code> / <code>insoles</code> / <code>orpheCore</code> は <code>OrpheCoreInsole</code> です。<code>on()</code> / <code>onEvent()</code> へ移行するか、旧コールバックに <code>attachLegacyCallbacks()</code> を使ってください。scriptのURL差し替えだけで全アプリが移行できるわけではないため、READMEの対応表も確認してください。",
         migrationHeaderOld: "ORPHE-CORE.js / ORPHE-INSOLE.js",
         migrationHeaderNew: "ORPHE-CORE-INSOLE.js",
         migrationSetupNew: "不要",
@@ -2257,8 +2268,8 @@
         termsWarrantyBody: "このページはORPHE-CORE.js v1.4.0以降の方針に従います。ORPHE-CORE-INSOLE.jsのすべてのリリースは同じ利用方針です。詳細はリポジトリのLICENSE.mdを参照してください。",
         termsCopyrightTag: "著作権",
         termsCopyrightTitle: "著作権とライセンス",
-        termsCopyrightBody: "Copyright (C) 2025, Tetsuaki BABA and ORPHE Inc. 許可される用途と商用契約の要件は利用方針を参照してください。",
-        footerCopyright: "Copyright (C) 2025, Tetsuaki BABA and ORPHE Inc."
+        termsCopyrightBody: "Copyright (C) 2025–2026, Tetsuaki BABA and ORPHE Inc. 許可される用途と商用契約の要件は利用方針を参照してください。",
+        footerCopyright: "Copyright (C) 2025–2026, Tetsuaki BABA and ORPHE Inc."
       }
     };
 
