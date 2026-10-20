@@ -1,6 +1,6 @@
 /**
  * CoreProfile: ORPHE CORE の DeviceProfile 実装。
- * - SENSOR_VALUES: header 50（92byte・quat は実ノルムで正規化・200Hz）/ header 40（通常・quat Q14）
+ * - SENSOR_VALUES: header 50（可変長・92 / 104byte で4フレーム・quat は実ノルムで正規化・200Hz）/ header 40（通常・quat Q14）
  * - STEP_ANALYSIS: sub 0(gait)/1(stride)/2(pronation)/4(quat+delta)、steps 単調増加フィルタ
  * - begin シーケンス: DeviceInfo取得 → range適用書込 → 時刻同期 → notify種別分岐
  */
@@ -19,7 +19,7 @@ import { encodeDateTime } from '../../src/protocol/datetime.ts';
 import { ORPHE_UUID } from '../../src/protocol/uuids.ts';
 import { MemoryStorage, MockBluetooth, MockDevice } from '../helpers/mock-bluetooth.ts';
 
-// ─── SENSOR_VALUES: header 50（92byte・魔改造200Hz） ─────────────
+// ─── SENSOR_VALUES: header 50（可変長・魔改造200Hz） ─────────────
 
 function packet50(serial = 0x0102, byteLength = 92): DataView {
   const dv = new DataView(new ArrayBuffer(byteLength));
@@ -54,17 +54,18 @@ test('header 50: quat は実ノルムで正規化（Q14 / Q15 どちらでも単
   assert.equal(s0!.serial_number, 0x0102);
 });
 
-test('header 50: 各フレームの時刻は基準時刻からの経過（delta）を引いて求める', () => {
+test('header 50: フレーム 0 が基準時刻、以降は直前フレーム末尾の経過 ms を引いて求める', () => {
   const now = () => new Date(2026, 8, 9, 12, 0, 0);
   const dv = packet50();
-  dv.setUint8(28, 5);  // delta0
-  dv.setUint8(49, 10); // delta1
-  dv.setUint8(70, 14); // delta2
+  dv.setUint8(28, 5);  // フレーム 1 の経過
+  dv.setUint8(49, 10); // フレーム 2 の経過
+  dv.setUint8(70, 14); // フレーム 3 の経過
+  dv.setUint8(91, 99); // 最終フレーム末尾は次フレームが無いので使わない
   const base = new Date(2026, 8, 9, 12, 34, 56, 789).getTime();
 
   const samples = parseCoreSensorValues(dv, { accRange: 16, gyroRange: 2000, now })!;
-  // 古い順に配送: 最古のフレームの経過は delta2 + (delta1 - delta0)
-  assert.deepEqual(samples.map(sample => base - sample.timestamp!), [19, 14, 10, 5]);
+  // 古い順に配送
+  assert.deepEqual(samples.map(sample => base - sample.timestamp!), [14, 10, 5, 0]);
 });
 
 test('header 50: quat のノルムが 0 のフレームは直前の姿勢を維持し、直前も無ければ単位クォータニオン', () => {
@@ -76,27 +77,64 @@ test('header 50: quat のノルムが 0 のフレームは直前の姿勢を維�
   assert.deepEqual([held[0]!.quat!.w, held[0]!.quat!.x], [0, 1]);
 });
 
-test('header 50: 92 バイト以外（104 バイト版を含む）は null', () => {
-  for (const byteLength of [100, 104]) {
+// CR-3 実機の header 50（104 バイト = 4 フレーム + 12 バイトのゼロ埋め・静止状態）
+const CR3_PACKET_HEX =
+  '32 00 fd 11 29 37 00 6d '
+  + 'c1 fe 0f 8f 00 5f 02 e8 ff fa 00 0c ff f2 03 d4 00 45 07 2a 05 '
+  + 'c1 fd 0f 8b 00 61 02 e8 ff f9 00 0c ff f2 03 d4 00 46 07 2e 0a '
+  + 'c1 fd 0f 8b 00 67 02 e8 ff f9 00 0c ff f2 03 d5 00 48 07 30 0e '
+  + 'c1 fd 0f 8a 00 62 02 e6 ff fa 00 0c ff f3 03 d1 00 45 07 2e d8 '
+  + '00 00 00 00 00 00 00 00 00 00 00 00';
+
+function hexPacket(hex: string): DataView {
+  return new DataView(new Uint8Array(hex.trim().split(/\s+/).map(byte => parseInt(byte, 16))).buffer);
+}
+
+test('header 50: CR-3 実機の 104 バイトパケットを 4 フレームとして読む', () => {
+  const dv = hexPacket(CR3_PACKET_HEX);
+  assert.equal(dv.byteLength, 104);
+  const now = () => new Date(2026, 9, 20, 12, 0, 0);
+  const base = new Date(2026, 9, 20, 17, 41, 55, 109).getTime();
+
+  const samples = parseCoreSensorValues(dv, { accRange: 16, gyroRange: 2000, now })!;
+  assert.equal(samples.length, 4);
+  assert.deepEqual(samples.map(sample => sample.packet_number), [0, 1, 2, 3]);
+  assert.deepEqual(samples.map(sample => base - sample.timestamp!), [14, 10, 5, 0]);
+  for (const sample of samples) {
+    assert.equal(sample.serial_number, 0x00fd);
+    const q = sample.quat!;
+    assert.ok(Math.abs(Math.hypot(q.w, q.x, q.y, q.z) - 1) < 1e-9);
+    // 静止時の加速度は約 1G（±16G レンジ）
+    const a = sample.converted_acc!;
+    assert.ok(Math.abs(Math.hypot(a.x, a.y, a.z) - 1) < 0.05, `|acc| = ${Math.hypot(a.x, a.y, a.z)}`);
+  }
+  // 最新フレーム（フレーム 0）の生値
+  const latest = samples[3]!;
+  assert.equal(latest.acc!.x, 980 / 32768);
+  assert.equal(latest.gyro!.y, 12 / 32768);
+});
+
+test('header 50: 1 フレームも収まらない長さは null', () => {
+  for (const byteLength of [8, 27]) {
     const dv = new DataView(new ArrayBuffer(byteLength));
     dv.setUint8(0, 50);
     assert.equal(parseCoreSensorValues(dv, { accRange: 16, gyroRange: 2000 }), null, `${byteLength} bytes`);
   }
 });
 
-test('acceptExtendedSensorValues: 104 バイトの header 50 を先頭 92 バイトとして読む', () => {
+test('header 50: 104 バイト版は既定で受け付け、acceptExtendedSensorValues を指定しても結果は同じ', () => {
   const build = (byteLength: number) => {
     const dv = packet50(0x0304, byteLength);
     dv.setInt16(71, 16384);
     dv.setInt16(79, 16384);
     return dv;
   };
-  assert.equal(coreProfile().parse('SENSOR_VALUES', build(104)), null, '既定では受け付けない');
-
-  const extended = coreProfile({ acceptExtendedSensorValues: true }).parse('SENSOR_VALUES', build(104));
+  const extended = coreProfile().parse('SENSOR_VALUES', build(104));
+  const legacy = coreProfile({ acceptExtendedSensorValues: true }).parse('SENSOR_VALUES', build(104));
   const standard = coreProfile().parse('SENSOR_VALUES', build(92));
   assert.ok(extended && standard);
   assert.deepEqual(extended, standard);
+  assert.deepEqual(legacy, standard);
 });
 
 // ─── SENSOR_VALUES: header 40（通常） ────────────────────────────
@@ -396,7 +434,7 @@ test('begin で serial の追跡をやり直す（再接続直後に lost_data �
 test('header 50: 長さ不正でも serial は追跡され lost_data のみ返る', () => {
   const profile = coreProfile();
   profile.parse('SENSOR_VALUES', packet50(10));
-  const bad = new DataView(new ArrayBuffer(104)); // 92 以外
+  const bad = new DataView(new ArrayBuffer(20)); // フレームが収まらない長さ
   bad.setUint8(0, 50);
   bad.setUint16(1, 20);
   const result = profile.parse('SENSOR_VALUES', bad)!;

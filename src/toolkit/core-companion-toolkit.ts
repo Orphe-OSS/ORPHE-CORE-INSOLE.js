@@ -3,8 +3,7 @@
  * CoreCompanionToolkit — INSOLE のページに ORPHE CORE を 1 台だけ同居させる接続 GUI。
  *
  * 生成する CORE は orpheCore（insoles / cores とは独立したインスタンス）。
- * chooser は名前（既定 'CR-'）とサービス UUID のどちらでも CORE を拾い、
- * header 50 の 104 バイト版パケットも受け付ける。
+ * chooser は名前（既定 'CR-'）とサービス UUID のどちらでも CORE を拾う。
  * orpheCore は OrpheCoreInsole（coreProfile）なので、`orpheCore.on('converted_acc', …)` で使う。
  */
 import { OrpheCoreInsole, coreProfile } from '../index.ts';
@@ -56,7 +55,7 @@ export function buildCoreCompanionToolkit(
 
   if (!orpheCore) {
     orpheCore = new OrpheCoreInsole({
-      profile: coreProfile({ namePrefix: options.chooserNamePrefix, acceptExtendedSensorValues: true }),
+      profile: coreProfile({ namePrefix: options.chooserNamePrefix }),
       id: 0,
       events: { onError: (error) => console.error('CoreCompanionToolkit:', error) },
     });
