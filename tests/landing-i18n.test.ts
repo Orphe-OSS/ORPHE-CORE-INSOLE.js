@@ -48,6 +48,7 @@ test('landing pages are generated from index.html and committed', () => {
     const pageUrl = SITE_URL + config.dir;
 
     assert.equal(attr(html, /<html lang="([^"]*)">/, 'html lang'), language, `${config.file}: lang`);
+    assert.equal(attr(html, /<meta name="robots"\s+content="([^"]*)"/, 'robots'), 'noindex', `${config.file}: robots noindex`);
     assert.equal(attr(html, /<title>([^<]*)<\/title>/, 'title'), strings.metaTitle, `${config.file}: title`);
     assert.equal(attr(html, /<meta name="description"\s+content="([^"]*)"/, 'description'), strings.metaDescription);
     assert.equal(attr(html, /<meta property="og:locale" content="([^"]*)"/, 'og:locale'), config.locale);
@@ -107,4 +108,81 @@ test('landing pages are generated from index.html and committed', () => {
 
   // 両言語の辞書キーが一致する
   assert.deepEqual(Object.keys(translations.ja).sort(), Object.keys(translations.en).sort(), 'translation keys differ between ja and en');
+});
+
+// ブラウザ側の翻訳処理が静的生成の漏れを隠さないよう、スクリプトを実行せず解析する。
+test('全翻訳対象の静的本文・HTML・ARIAが辞書と一致する', async () => {
+  const { Window } = await import('happy-dom');
+  const { outputs, translations } = buildLandingPages();
+  for (const language of LANGUAGE_KEYS) {
+    const window = new Window();
+    try {
+      const document = window.document;
+      document.documentElement.innerHTML = outputs[LANGUAGES[language].file]!;
+      const strings = translations[language];
+      for (const element of document.querySelectorAll('[data-i18n]')) {
+        const key = element.getAttribute('data-i18n')!;
+        assert.equal(element.textContent, strings[key], `${language}: ${key}`);
+      }
+      for (const element of document.querySelectorAll('[data-i18n-html]')) {
+        const key = element.getAttribute('data-i18n-html')!;
+        assert.ok(Object.hasOwn(strings, key), `${language}: ${key} が未定義`);
+        const expected = document.createElement('div');
+        expected.innerHTML = strings[key]!;
+        // 英語ページでの相対URL補正を含めて比較する。
+        for (const link of expected.querySelectorAll('[href], [src]')) {
+          for (const name of ['href', 'src']) {
+            const value = link.getAttribute(name);
+            if (language === 'en' && value && !/^(?:[a-z][a-z0-9+.-]*:|\/\/|\/|#|\.\.\/|\.\/)/i.test(value)) {
+              link.setAttribute(name, '../' + value);
+            }
+          }
+        }
+        assert.equal(element.innerHTML, expected.innerHTML, `${language}: ${key}`);
+      }
+      for (const element of document.querySelectorAll('[data-i18n-aria-label]')) {
+        const key = element.getAttribute('data-i18n-aria-label')!;
+        assert.equal(element.getAttribute('aria-label'), strings[key], `${language}: ${key}`);
+      }
+    } finally {
+      await window.happyDOM.close();
+    }
+  }
+});
+
+test('翻訳属性が先頭・途中でも適用し、存在しないキーも検出する', async () => {
+  const { Window } = await import('happy-dom');
+  const fixture = `
+    <p data-i18n="heroEyebrow" id="text-first">未翻訳</p>
+    <p id="text-later" data-i18n="heroEyebrow">未翻訳</p>
+    <p data-i18n-html="feature1Body" id="html-first">未翻訳</p>
+    <p id="html-later" data-i18n-html="feature1Body">未翻訳</p>
+    <div data-i18n-aria-label="navLabel" id="aria-first"></div>
+    <div id="aria-later" data-i18n-aria-label="navLabel" aria-label="未翻訳"></div>
+    <p data-i18n="missingText">保持</p>
+    <p data-i18n-html="missingHtml">保持</p>
+    <div data-i18n-aria-label="missingAria" aria-label="保持"></div>
+  `;
+  const built = buildLandingPages({ source: read('index.html').replace('</body>', fixture + '</body>') });
+  for (const language of LANGUAGE_KEYS) {
+    assert.deepEqual(built.missing[language].sort(), ['missingAria', 'missingHtml', 'missingText']);
+    const window = new Window();
+    try {
+      const document = window.document;
+      document.documentElement.innerHTML = built.outputs[LANGUAGES[language].file]!;
+      const strings = built.translations[language];
+      for (const order of ['first', 'later']) {
+        assert.equal(document.getElementById(`text-${order}`)!.textContent, strings.heroEyebrow);
+        const expected = document.createElement('div');
+        expected.innerHTML = strings.feature1Body!;
+        assert.equal(document.getElementById(`html-${order}`)!.innerHTML, expected.innerHTML);
+        assert.equal(document.getElementById(`aria-${order}`)!.getAttribute('aria-label'), strings.navLabel);
+      }
+      assert.equal(document.querySelector('[data-i18n="missingText"]')!.textContent, '保持');
+      assert.equal(document.querySelector('[data-i18n-html="missingHtml"]')!.textContent, '保持');
+      assert.equal(document.querySelector('[data-i18n-aria-label="missingAria"]')!.getAttribute('aria-label'), '保持');
+    } finally {
+      await window.happyDOM.close();
+    }
+  }
 });

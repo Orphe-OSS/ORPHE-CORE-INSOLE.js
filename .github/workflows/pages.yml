@@ -5,7 +5,7 @@
 #   assets/                      画像・動画・フォント
 #   api_doc/                     TypeDoc の出力（.gitignore 対象なので、ここで生成する）
 #   README.md / LICENSE.md       ページ内からリンクしている
-#   robots.txt / sitemap.xml
+#   robots.txt
 #
 # リポジトリ設定 > Pages > Build and deployment > Source を "GitHub Actions" にしておく必要がある。
 name: Pages
@@ -20,7 +20,6 @@ on:
       - README.md
       - LICENSE.md
       - robots.txt
-      - sitemap.xml
       - scripts/build-landing.mjs
       - src/**
       - typedoc.json
@@ -56,14 +55,33 @@ jobs:
       # en/index.html が index.html から生成した結果と一致することを確認する
       - run: npm run check:site
 
-      # TypeDoc で api_doc/ を生成する
+      # TypeDoc で api_doc/ を生成し、全 HTML に noindex を付与する
       - run: npm run docs
+      - name: api_doc に noindex を付与する
+        run: |
+          node -e '
+            const fs = require("node:fs");
+            const path = require("node:path");
+            function walk(dir) {
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const p = path.join(dir, entry.name);
+                if (entry.isDirectory()) walk(p);
+                else if (entry.name.endsWith(".html")) {
+                  const html = fs.readFileSync(p, "utf8");
+                  if (!/<meta\s+name="robots"/i.test(html)) {
+                    fs.writeFileSync(p, html.replace(/<head>/i, "<head><meta name=\"robots\" content=\"noindex\">"));
+                  }
+                }
+              }
+            }
+            walk("api_doc");
+          '
 
       - name: _site を組み立てる
         run: |
           rm -rf _site
           mkdir -p _site/en
-          cp index.html README.md LICENSE.md robots.txt sitemap.xml _site/
+          cp index.html README.md LICENSE.md robots.txt _site/
           cp en/index.html _site/en/
           cp -R assets _site/assets
           cp -R api_doc _site/api_doc
