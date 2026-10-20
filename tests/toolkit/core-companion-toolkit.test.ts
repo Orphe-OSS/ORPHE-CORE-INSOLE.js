@@ -24,7 +24,7 @@ function setup(options: Parameters<typeof buildCoreCompanionToolkit>[2] = {}) {
   document.body.innerHTML = '<div id="toolkit"></div>';
   const bluetooth = new MockBluetooth();
   const core = new OrpheCoreInsole({
-    profile: coreProfile({ namePrefix: 'CR-', settleMs: 0, timeSyncSamples: 1, acceptExtendedSensorValues: true }),
+    profile: coreProfile({ namePrefix: 'CR-', settleMs: 0, timeSyncSamples: 1 }),
     id: 0,
     bluetooth,
     storage: new MemoryStorage(),

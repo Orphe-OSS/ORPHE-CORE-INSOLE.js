@@ -154,9 +154,25 @@ function timestampToday(now: Date, hours: number, minutes: number, seconds: numb
   return date.getTime();
 }
 
+/** header 50 の 1 フレームの長さ（quat 8 + gyro 6 + acc 6 + 次フレームの経過 ms 1） */
+const CORE_FRAME_STRIDE = 21;
+/** header 50 のフレーム数の上限 */
+const CORE_MAX_FRAMES = 8;
+
+/**
+ * header 50 のパケット長から読めるフレーム数を返す。
+ * 先頭 8 バイトのヘッダの後に 21 バイトのフレームが並び、末尾はゼロ埋めされることがある
+ * （CR-3 は 92 バイト分の 4 フレーム + 12 バイトのパディングで 104 バイト）。
+ */
+function coreFrameCount(byteLength: number): number {
+  let count = 0;
+  while (count < CORE_MAX_FRAMES && 8 + CORE_FRAME_STRIDE * count + 20 <= byteLength) count++;
+  return count;
+}
+
 /**
  * SENSOR_VALUES packet parser。
- * - header 50 (0x32): 200Hz・92byte・21byte×4フレーム
+ * - header 50 (0x32): 200Hz・8byte ヘッダ + 21byte フレーム（可変長。92byte / 104byte で 4 フレーム）
  * - header 40 (0x28): 通常・quat Q14・gyro/acc int8/127・単一サンプル
  * 対象外ヘッダ・不正長は null。
  */
@@ -165,21 +181,18 @@ export function parseCoreSensorValues(data: DataView, options: CoreParseOptions)
   const { accRange, gyroRange } = options;
 
   if (header === 50) {
-    if (data.byteLength !== 92) return null;
+    const frameCount = coreFrameCount(data.byteLength);
+    if (frameCount === 0) return null;
     const serial_number = data.getUint16(1);
     const now = options.now ? options.now() : new Date();
     const t_base = timestampToday(now, data.getUint8(3), data.getUint8(4), data.getUint8(5), data.getUint16(6));
-    // フレーム i の基準時刻からの経過 [ms]。フレーム 3（最古）には delta が無いので等間隔とみなす
-    const delta0 = data.getUint8(28);
-    const delta1 = data.getUint8(49);
-    const delta2 = data.getUint8(70);
-    const frameAgeMs = [delta0, delta1, delta2, delta2 + (delta1 - delta0)];
 
     const samples: CoreSensorSample[] = [];
     let previousQuat = options.previousQuat ?? null;
-    for (let i = 3; i >= 0; i--) {
-      const timestamp = t_base - frameAgeMs[i]!;
-      const packet_number = 3 - i;
+    for (let i = frameCount - 1; i >= 0; i--) {
+      // フレーム 0 が基準時刻。フレーム i (>0) は直前フレーム末尾の 1 バイトが基準時刻からの経過 [ms]
+      const timestamp = t_base - (i === 0 ? 0 : data.getUint8(8 + 21 * i - 1));
+      const packet_number = frameCount - 1 - i;
       const stamp = { timestamp, serial_number, packet_number };
       const gyro: CoreVec3 = {
         x: data.getInt16(16 + 21 * i) / 32768,
@@ -552,8 +565,7 @@ export interface CoreProfileOptions {
    */
   namePrefix?: string;
   /**
-   * header 50 の 104 バイト版パケットも先頭 92 バイトとして受け付ける。既定 false。
-   * 104 バイト版の quaternion は STEP_ANALYSIS と軸の取り方が異なるため、姿勢表示に混ぜる場合は注意する。
+   * @deprecated header 50 は可変長で読むため 104 バイト版も常に受け付ける。互換のため残しており、指定しても動作は変わらない。
    */
   acceptExtendedSensorValues?: boolean;
 }
@@ -656,9 +668,6 @@ export class CoreProfile implements DeviceProfile<CoreSensorFields, CoreCommands
 
   parse(uuid: string, data: DataView): CoreSensorSample[] | null {
     if (uuid === 'SENSOR_VALUES') {
-      if (this.defaults.acceptExtendedSensorValues && data.byteLength === 104 && data.getUint8(0) === 50) {
-        data = new DataView(data.buffer, data.byteOffset, 92);
-      }
       const samples: CoreSensorSample[] = [];
       // header 50 は長さ検査より先に serial を追跡する（長さ不正でも lost_data は発火する）
       if (data.byteLength >= 3 && data.getUint8(0) === 50) {
