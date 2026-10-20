@@ -18,10 +18,10 @@ await ble.begin('SENSOR_VALUES', { autoReconnect: true });
 ## 特長
 
 - CORE / INSOLE を同じ API で扱える
-- 接続したデバイスで使えるモードだけを `availableModes` で返す
-- 切断時の自動再接続と、記憶デバイスへの chooser なし再接続
-- FIFO ロスレス収録と歩容解析（CSV 出力付き）
-- タブ間の接続共有
+- `availableModes` は既知のFWリリース日でモードを絞り込む（FW不明時は対応未確定のモードも含む）
+- `autoReconnect: true` で切断時の自動再接続を有効化。記憶デバイスへの chooser なし再接続にも対応
+- 対応FWでのFIFOバッファ収録と、INSOLE向け歩容解析（CSV出力付き）
+- `useSharedBridge: true` でタブ間の接続共有を有効化
 
 ## 動作環境
 
@@ -154,11 +154,27 @@ ble.availableModes;             // [{ id: 'STREAMING_4', label: 'Full sensor 100
 | プロファイル | `begin()` の種別 | オプション |
 |---|---|---|
 | CORE | `SENSOR_VALUES` / `STEP_ANALYSIS` / `STEP_ANALYSIS_AND_SENSOR_VALUES` | `range`（加速度・角速度のレンジ） |
-| INSOLE | `SENSOR_VALUES` | `streamingMode`: 1（姿勢）/ 3（圧力 + IMU）/ 4（全センサー） |
+| INSOLE | `SENSOR_VALUES` | `streamingMode`: 1（姿勢 + 加速度 + 角速度）/ 3（圧力 + IMU）/ 4（全センサー） |
 
-`STREAMING_*` のモード id は `insoleStreamingModeOf(id)` で `streamingMode` の番号にできます。
+`availableModes` のIDは `begin()` の種別と必ずしも一致しません。`STREAMING_*` は `insoleStreamingModeOf(id)` で番号に変換し、例えば `begin('SENSOR_VALUES', { streamingMode: 4 })` と指定します。`FIFO` は `FifoRecorder.start()` で開始します。
 
-### FIFO ロスレス収録
+COREの種別省略時は `STEP_ANALYSIS` です。加速度を購読する場合は `SENSOR_VALUES`、歩容解析も同時に使う場合は `STEP_ANALYSIS_AND_SENSOR_VALUES` を指定します。`gait` は歩数が増えたときに配送され、固定30Hzのイベントではありません。
+
+INSOLEのリアルタイムセンサー配信は次の仕様です。歩容解析は下記の `InsoleGait` を使います。
+
+| streamingMode | 取得フィールド | サンプリング | パケット送出 |
+|---|---|---|---|
+| 1 | クォータニオン・加速度・角速度（圧力なし） | 200Hz | 50Hz |
+| 3 | 加速度・角速度・圧力（クォータニオンなし） | 200Hz | 50Hz |
+| 4（既定） | クォータニオン・加速度・角速度・圧力 | 100Hz | 50Hz |
+
+`converted_press` は個体別校正係数を利用できる場合、その係数でN換算します。FWが20260428より古い／不明、係数取得を無効化、取得失敗、係数が未書き込みの場合は固定式にフォールバックします。
+
+### FIFO バッファ収録
+
+COREは20260905以降、INSOLEは20260510以降のFWが必要です。既知の非対応FWでは開始を拒否します。FW情報が取得できない場合はモードを絞り込まないため、`availableModes` にFIFOがあっても対応確認済みとは限りません。
+
+バッファ再取得で欠損回復を試みますが、回復不能な欠損は `onDataLoss` で通知します。`stopOnLoss` の既定は `false` で収録を継続します。欠損時に停止したい場合は `new FifoRecorder(ble, { stopOnLoss: true })` としてください。
 
 ```ts
 import { FifoRecorder } from 'orphe-core-insole';
@@ -187,6 +203,8 @@ gait.download('gait.csv');
 ```
 
 ### 自動再接続
+
+自動再接続は既定で無効です。`begin()` のオプションで明示的に有効にします。
 
 ```ts
 await ble.begin('SENSOR_VALUES', {
@@ -248,6 +266,8 @@ ble.on('status', (status) => console.log(status.battery, status.version));
 ```
 
 ### 複数台とタブ間共有
+
+タブ間共有は既定で無効です。
 
 - 複数台は `id` を変えて `OrpheCoreInsole` を台数ぶん作ります。`deviceGuard` で二重割当を防げます。
 - `begin(type, { useSharedBridge: true })` にすると、同じスロットの BLE 接続を別タブと共有します。別タブが接続中なら BLE に触らずそのタブから受信し（`ble.sharedBridgeRole === 'secondary'`）、いなければ自分が接続して配信します（`'primary'`）。

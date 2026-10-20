@@ -94,7 +94,7 @@ function extractTranslations(html) {
  * 同名タグの入れ子は想定しない（検出したら例外）。辞書に無いキーは元の内容を残す。
  */
 function replaceElementContents(html, attr, strings, render, missing) {
-  const open = new RegExp(`<([a-zA-Z][\\w-]*)(\\s[^<>]*?\\s${attr}="([^"]+)"[^<>]*)>`, 'g');
+  const open = new RegExp(`<([a-zA-Z][\\w-]*)((?:\\s[^<>]*?)?\\s${attr}="([^"]+)"[^<>]*)>`, 'g');
   let out = '';
   let pos = 0;
   let m;
@@ -119,7 +119,7 @@ function replaceElementContents(html, attr, strings, render, missing) {
 
 /** `data-i18n-aria-label="key"` を持つタグの aria-label 属性を辞書値にする。 */
 function replaceAriaLabels(html, strings, missing) {
-  return html.replace(/<([a-zA-Z][\w-]*)(\s[^<>]*?\sdata-i18n-aria-label="([^"]+)"[^<>]*)>/g, (whole, tag, attrs, key) => {
+  return html.replace(/<([a-zA-Z][\w-]*)((?:\s[^<>]*?)?\sdata-i18n-aria-label="([^"]+)"[^<>]*)>/g, (whole, tag, attrs, key) => {
     const value = strings[key];
     if (value === undefined) {
       missing.push(key);
