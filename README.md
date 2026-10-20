@@ -36,9 +36,9 @@ jsDelivr から配信しています。`@v<version>` には [リリースタグ]
 
 ```html
 <!-- SDK 本体。公開 API はグローバル OrpheCoreInsoleJS に入る -->
-<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.0/dist/browser/orphe-core-insole.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.1/dist/browser/orphe-core-insole.js"></script>
 <!-- 接続 UI（buildCoreToolkit / buildInsoleToolkit）を使う場合のみ。SDK 本体の後に読み込む -->
-<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.0/dist/browser/orphe-core-insole-toolkit.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.1/dist/browser/orphe-core-insole-toolkit.js"></script>
 <script>
   const { OrpheCoreInsole, coreProfile } = OrpheCoreInsoleJS;
   const ble = new OrpheCoreInsole({ profile: coreProfile() });
