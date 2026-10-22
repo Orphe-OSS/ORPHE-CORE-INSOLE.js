@@ -1270,7 +1270,7 @@
             <div class="tile insole">
               <span class="tag">on('press' | 'converted_press')</span>
               <h3 data-i18n="insoleDataPressureTitle">圧力値</h3>
-              <p data-i18n="insoleDataPressureBody">片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合は固定式を使います。</p>
+              <p data-i18n="insoleDataPressureBody">片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合はチャンネルごとの既定係数を使います。</p>
             </div>
             <div class="tile insole">
               <span class="tag">on('converted_acc')</span>
@@ -1546,7 +1546,7 @@ document.getElementById("connect").onclick = () =&gt;
                 <span data-i18n="exampleCalibratedPressureTag">ニュートン換算</span>
                 <div>
                   <h3>Calibrated Pressure</h3>
-                  <p data-i18n="exampleCalibratedPressureBody">6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合は固定式で換算します。</p>
+                  <p data-i18n="exampleCalibratedPressureBody">6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合はチャンネルごとの既定係数で換算します。</p>
                 </div>
                 <strong data-i18n="exampleCalibratedPressureCta">荷重チャートを開く</strong>
               </div>
@@ -1892,7 +1892,7 @@ document.getElementById("connect").onclick = () =&gt;
         insoleDataTitle: "Pressure, motion, and orientation",
         insoleDataBody: "The real-time sensor stream uses <code>SENSOR_VALUES</code>; <code>streamingMode</code> 1 / 3 / 4 selects its fields. Gait analysis and FIFO recording use separate acquisition paths.",
         insoleDataPressureTitle: "Pressure values",
-        insoleDataPressureBody: "Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise a fixed formula.",
+        insoleDataPressureBody: "Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise per-channel default coefficients.",
         insoleDataAccTitle: "Acceleration",
         insoleDataAccBody: "Converted XYZ acceleration for movement intensity, step timing, and interaction design.",
         insoleDataGyroTitle: "Angular velocity",
@@ -1960,7 +1960,7 @@ document.getElementById("connect").onclick = () =&gt;
         exampleGaitReportBody: "Record 20 steps per foot and build a live-updating gait report with mean ± SD, left/right asymmetry, variability, and foot-strike breakdown.",
         exampleGaitReportCta: "Open gait report",
         exampleCalibratedPressureTag: "Load in newtons",
-        exampleCalibratedPressureBody: "Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise a fixed conversion formula.",
+        exampleCalibratedPressureBody: "Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise per-channel default coefficients.",
         exampleCalibratedPressureCta: "Open load chart",
         exampleFifoGuideTag: "Buffered recording",
         exampleFifoGuideBody: "Start here for FIFO: how it differs from realtime, why the device buffer holds about 30 seconds, and how to check serial continuity before exporting CSV.",
@@ -2125,7 +2125,7 @@ document.getElementById("connect").onclick = () =&gt;
         insoleDataTitle: "圧力、モーション、姿勢",
         insoleDataBody: "リアルタイムセンサーストリームは <code>SENSOR_VALUES</code> を使い、<code>streamingMode</code> 1 / 3 / 4 で届くフィールドを選びます。歩容解析・FIFO収録は別の取得方式です。",
         insoleDataPressureTitle: "圧力値",
-        insoleDataPressureBody: "片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合は固定式を使います。",
+        insoleDataPressureBody: "片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合はチャンネルごとの既定係数を使います。",
         insoleDataAccTitle: "加速度",
         insoleDataAccBody: "換算済みのXYZ加速度。動きの強さ、ステップのタイミング、インタラクション設計に。",
         insoleDataGyroTitle: "角速度",
@@ -2193,7 +2193,7 @@ document.getElementById("connect").onclick = () =&gt;
         exampleGaitReportBody: "片足20歩を記録し、平均±SD、左右非対称性、ばらつき、接地パターン内訳のレポートをリアルタイムに作ります。",
         exampleGaitReportCta: "歩容レポートを開く",
         exampleCalibratedPressureTag: "ニュートン換算",
-        exampleCalibratedPressureBody: "6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合は固定式で換算します。",
+        exampleCalibratedPressureBody: "6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合はチャンネルごとの既定係数で換算します。",
         exampleCalibratedPressureCta: "荷重チャートを開く",
         exampleFifoGuideTag: "バッファ収録",
         exampleFifoGuideBody: "FIFOの入口。リアルタイムとの違い、デバイスバッファが約30秒である理由、CSV出力前のシリアル連続性の確認方法を学べます。",

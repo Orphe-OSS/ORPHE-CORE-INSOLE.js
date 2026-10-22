@@ -82,6 +82,13 @@ export function _commandTypingAssertions(): void {
   // コマンドはプロファイルごとに型付けされる
   void core.commands.setLED(true, 2);
   void insole.commands.setDataStreamingMode(3);
+  // 校正係数の取り直しは ch ごとの係数（欠けは null）か、取れなければ null
+  void insole.commands.fetchPressureCalibrations({ timeoutMs: 500 }).then((calibrations) => {
+    const coefficients: number[] | undefined = calibrations?.[0]?.coefficients;
+    void coefficients;
+  });
+  // @ts-expect-error CORE に圧力校正は無い
+  void core.commands.fetchPressureCalibrations();
   // @ts-expect-error INSOLE に LED コマンドは無い
   void insole.commands.setLED(true);
   // @ts-expect-error CORE にストリーミングモード切替は無い

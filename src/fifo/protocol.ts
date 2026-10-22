@@ -30,7 +30,7 @@
  * LEGACY_CSV_FRAME_INTERVAL_MS（5ms/frame）のまま据え置く。CSV の timestamp から
  * dt を逆算しないこと。
  */
-import { pressureToNewton } from '../protocol/pressure-calibration.ts';
+import { defaultPressureToNewton, pressureToNewton } from '../protocol/pressure-calibration.ts';
 import type { PressureCalibration } from '../protocol/pressure-calibration.ts';
 import { DEFAULT_ACC_RANGE, DEFAULT_GYRO_RANGE, GYRO_DPS_PER_LSB_PER_RANGE, gyroRawToDps, imuRangeFromSettings } from '../protocol/imu-range.ts';
 import type { ImuRange } from '../protocol/imu-range.ts';
@@ -145,19 +145,9 @@ export function gyroToDps(msb: number, lsb: number, range: number = FIFO_DEFAULT
   return gyroRawToDps(binToInt(msb, lsb), range);
 }
 
-/** 圧力生値(ADC uint16) → N（固定校正多項式。n は 1..6） */
+/** 圧力生値(ADC uint16) → N（既定係数の ch ごとの多項式。n は 1..6、範囲外は 0） */
 export function pressureToN(x: number, n: number): number {
-  let y: number;
-  switch (n) {
-    case 1: y = 6.31278e-11 * x ** 4 - 2.33093e-07 * x ** 3 + 3.27825e-04 * x ** 2 - 1.63373e-01 * x + 2.25012e01; break;
-    case 2: y = 6.65168e-11 * x ** 4 - 2.10741e-07 * x ** 3 + 2.31937e-04 * x ** 2 - 7.10366e-02 * x + 6.97927e00; break;
-    case 3: y = 1.07646e-10 * x ** 4 - 3.85112e-07 * x ** 3 + 5.02384e-04 * x ** 2 - 2.37328e-01 * x + 3.18015e01; break;
-    case 4: y = 5.91156e-11 * x ** 4 - 1.81045e-07 * x ** 3 + 1.86644e-04 * x ** 2 - 4.46178e-02 * x + 3.10811e00; break;
-    case 5: y = 5.32573e-11 * x ** 4 - 1.68515e-07 * x ** 3 + 1.79518e-04 * x ** 2 - 4.66859e-02 * x + 3.71484e00; break;
-    case 6: y = 4.44324e-11 * x ** 4 - 1.09728e-07 * x ** 3 + 8.90389e-05 * x ** 2 + 3.82816e-03 * x - 4.46580e00; break;
-    default: y = 0;
-  }
-  return y < 0 ? 0 : y;
+  return defaultPressureToNewton(x, n - 1);
 }
 
 // ── シリアル番号ユーティリティ ───────────────────────────────────────
@@ -390,9 +380,8 @@ export function packetToCsvRows(
   range: FifoRange = FIFO_DEFAULT_RANGE
 ): string[] {
   const layout = fifoLayoutFor(kind);
-  // 個体別係数があれば ch ごとにそれで N に換算し、なければ固定多項式
-  const toN = (raw: number, i: number): number =>
-    calibrations ? pressureToNewton(raw, calibrations[i]) : pressureToN(raw, i + 1);
+  // 個体別係数があれば ch ごとにそれで N に換算し、無い ch は既定係数
+  const toN = (raw: number, i: number): number => pressureToNewton(raw, calibrations?.[i] ?? null, i);
   const serial = dv.getUint16(1);
   const h = dv.getUint8(3);
   const m = dv.getUint8(4);
