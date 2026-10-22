@@ -14,5 +14,6 @@
   },
   "visibilityFilters": {},
   "searchInComments": true,
-  "hideGenerator": true
+  "hideGenerator": true,
+  "favicon": "assets/images/orphe_symbol_black.svg"
 }
