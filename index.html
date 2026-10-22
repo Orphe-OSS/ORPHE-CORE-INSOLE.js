@@ -34,7 +34,7 @@
     "url": "https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js/",
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Web (Chrome, Edge)",
-    "description": "JavaScript SDK that connects ORPHE CORE foot-mounted IMU sensors and ORPHE INSOLE smart insoles to browser apps via Web Bluetooth with one shared API.",
+    "description": "JavaScript SDK that connects ORPHE CORE compact IMU sensors and ORPHE INSOLE smart insoles to browser apps via Web Bluetooth with one shared API.",
     "softwareVersion": "0.2.1",
     "inLanguage": "ja",
     "license": "https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/blob/main/LICENSE.md",
@@ -43,7 +43,7 @@
     "publisher": { "@type": "Organization", "name": "ORPHE Inc.", "url": "https://orphe.io/" }
   }
   </script>
-  <link rel="icon" href="assets/images/orphe.svg" type="image/svg+xml">
+  <link rel="icon" href="assets/images/orphe_symbol_black.svg" type="image/svg+xml">
   <style>
     @font-face {
       font-family: "Roboto";
@@ -146,7 +146,7 @@
     }
 
     .brand img {
-      width: 94px;
+      width: 111px;
       height: auto;
     }
 
@@ -803,7 +803,7 @@
       }
 
       .brand img {
-        width: 82px;
+        width: 97px;
       }
 
       .hero,
@@ -1064,8 +1064,8 @@
           <p class="eyebrow" data-i18n="heroEyebrow">ORPHE CORE / ORPHE INSOLE 向け Web Bluetooth SDK</p>
           <h1 id="hero-title">ORPHE-CORE-INSOLE.js</h1>
           <p class="hero-copy">
-            <span data-i18n="heroCopy1">ひとつのAPIで、ORPHE COREもORPHE INSOLEも。</span>
-            <span data-i18n="heroCopy2">足に着けるIMUセンサー「ORPHE CORE」と、圧力センサー内蔵スマートインソール「ORPHE INSOLE」。どちらもこのSDKひとつで、Web Bluetooth経由でブラウザアプリにつながります。</span>
+            <span data-i18n="heroCopy1">ひとつのSDKで、2つのデバイスをブラウザへ。</span>
+            <span data-i18n="heroCopy2">小型のIMUセンサー「ORPHE CORE」と、圧力センサー内蔵スマートインソール「ORPHE INSOLE」。このSDKを使えば、どちらのデバイスもWeb Bluetooth経由でシームレスにブラウザアプリと連携できます。</span>
           </p>
           <div class="hero-actions">
             <a class="button primary" href="https://orphe-oss.github.io/ORPHE-CORE-INSOLE.js-EXAMPLE/" data-i18n="heroExamples">サンプル集を開く</a>
@@ -1130,7 +1130,7 @@
         <div class="section-head">
           <p class="eyebrow" data-i18n="productEyebrow">対応製品</p>
           <h2 data-i18n="productTitle">2つのデバイス、1つのSDK。アイデアに合うセンサーを選べます。</h2>
-          <p class="lead" data-i18n="productLead">足の甲や靴ひもに装着して動きを捉えるORPHE COREと、中敷きとして足裏圧まで計測するORPHE INSOLE。用途に合わせて選んでも、両方を同時につないでも、同じコードで扱えます。</p>
+          <p class="lead" data-i18n="productLead">身体の動きをリアルタイムに捉える小型IMUセンサー「ORPHE CORE」と、足裏の圧力分布まで計測可能なスマートインソール「ORPHE INSOLE」。用途に合わせて選んでも、両方を同時に接続しても、まったく同じコードでシームレスに扱うことができます。</p>
         </div>
 
         <div class="product-showcase">
@@ -1143,8 +1143,8 @@
           </div>
           <div>
             <span class="device-badge core">ORPHE CORE</span>
-            <h3 data-i18n="coreTitle">靴に取り付ける小型モーションセンサー。</h3>
-            <p class="lead" data-i18n="coreLead">ORPHE COREは、靴ひもに取り付けるシューレースマウントや対応シューズで足に装着する6軸IMUセンサーです。生のセンサー値に加えて、歩数・歩容タイプ・ストライド・プロネーションなどの歩容解析結果をデバイス側で計算して送ります。</p>
+            <h3 data-i18n="coreTitle">アイデア次第で自在に使える、身体動作計測のための小型モーションセンサー。</h3>
+            <p class="lead" data-i18n="coreLead">ORPHE COREは、身体の動きを高精度にトラッキングできる、わずか約20gの軽量6軸IMUセンサーデバイスです。生のセンサー値に加えて、歩数・歩容タイプ・ストライド・プロネーションなどの歩容解析結果をデバイス側で計算して送ります。</p>
             <div class="spec-grid">
               <div class="spec-item core">
                 <span data-i18n="coreSpecSensorsTag">センサー</span>
@@ -1763,8 +1763,8 @@ document.getElementById("connect").onclick = () =&gt;
       <div class="section-inner">
         <div class="section-head">
           <p class="eyebrow" data-i18n="termsEyebrow">利用方針</p>
-          <h2 data-i18n="termsTitle">教育・研究・試作・非商用アプリは無償利用。有料・商用利用は別途契約が必要です。</h2>
-          <p class="lead" data-i18n="termsLead">ORPHE-CORE.js / ORPHE-INSOLE.jsの方針に従い、ORPHE-CORE-INSOLE.jsは教育・ワークショップ、大学・研究機関などでの非商用研究、個人制作、試作・社内検証、ORPHE CORE / INSOLEを使った無償アプリ・非商用サービスについて、改変を含めて無償で利用できる方針です。</p>
+          <h2 data-i18n="termsTitle">非商用プロジェクトはすべて無料。商用利用には別途契約が必要です。</h2>
+          <p class="lead" data-i18n="termsLead">本SDKは、従来の「ORPHE-CORE.js / ORPHE-INSOLE.js」の方針を引き継いでいます。個人制作やプロトタイプの社内検証をはじめ、教育・ワークショップ、大学等での非商用研究、無償アプリ・非商用サービスの開発において、改変を含めて無償で自由にご利用いただけます。</p>
         </div>
         <div class="data-grid">
           <div class="tile">
@@ -1807,7 +1807,7 @@ document.getElementById("connect").onclick = () =&gt;
     const translations = {
       en: {
         metaTitle: "ORPHE-CORE-INSOLE.js | One JavaScript SDK for ORPHE CORE and ORPHE INSOLE",
-        metaDescription: "ORPHE-CORE-INSOLE.js connects ORPHE CORE foot-mounted IMU sensors and ORPHE INSOLE smart insoles to browser apps through Web Bluetooth with one shared API.",
+        metaDescription: "ORPHE-CORE-INSOLE.js connects ORPHE CORE compact IMU sensors and ORPHE INSOLE smart insoles to browser apps through Web Bluetooth with one shared API.",
         navLabel: "Main navigation",
         navAbout: "About",
         navProduct: "Devices",
@@ -1818,8 +1818,8 @@ document.getElementById("connect").onclick = () =&gt;
         navTerms: "Terms",
         languageLabel: "Language",
         heroEyebrow: "Web Bluetooth SDK for ORPHE CORE and ORPHE INSOLE",
-        heroCopy1: "One API for both ORPHE CORE and ORPHE INSOLE.",
-        heroCopy2: "ORPHE CORE is a foot-mounted IMU sensor; ORPHE INSOLE is a smart insole with pressure sensors. This single SDK connects either of them to your browser app over Web Bluetooth.",
+        heroCopy1: "One SDK brings two devices to your browser.",
+        heroCopy2: "ORPHE CORE is a compact IMU sensor; ORPHE INSOLE is a smart insole with built-in pressure sensors. With this SDK, both devices connect seamlessly to your browser app over Web Bluetooth.",
         heroExamples: "Open the examples",
         heroStart: "Start in 3 minutes",
         heroGithub: "View on GitHub",
@@ -1840,10 +1840,10 @@ document.getElementById("connect").onclick = () =&gt;
         feature3Body: "Compatibility classes <code>Orphe</code> / <code>OrpheInsole</code> retain <code>got*</code> callbacks. Toolkit-created instances use the new API; use <code>on()</code> or <code>attachLegacyCallbacks()</code> when migrating.",
         productEyebrow: "Supported devices",
         productTitle: "Two devices, one SDK: pick the sensor that fits your idea.",
-        productLead: "ORPHE CORE clips onto your shoes to capture motion; ORPHE INSOLE replaces the insole to measure foot pressure as well. Choose one for your use case, or connect both at once: the code stays the same.",
+        productLead: "ORPHE CORE, a compact IMU sensor that captures body movement in real time, and ORPHE INSOLE, a smart insole that measures plantar pressure distribution. Choose one for your use case or connect both at once: the exact same code handles either seamlessly.",
         coreImageCaption: "Foot-mounted IMU module",
-        coreTitle: "A compact motion sensor that clips onto your shoes.",
-        coreLead: "ORPHE CORE is a 6-axis IMU sensor worn on the foot with a shoelace mount or dedicated shoes. Besides raw sensor values, it computes gait analysis on the device, including step count, gait type, stride, and pronation.",
+        coreTitle: "A compact motion sensor for measuring body movement, ready for any idea.",
+        coreLead: "ORPHE CORE is a lightweight 6-axis IMU sensor device, only about 20 g, that tracks body movement with high precision. Besides raw sensor values, it computes gait analysis on the device, including step count, gait type, stride, and pronation.",
         coreSpecSensorsTag: "Sensors",
         coreSpecSensorsTitle: "6-axis IMU + on-device gait analysis",
         coreSpecSensorsBody: "3-axis acceleration and 3-axis gyroscope, sampled at up to 200 Hz on CORE 3.0. Gait events are delivered per step.",
@@ -2022,8 +2022,8 @@ document.getElementById("connect").onclick = () =&gt;
         noticeBody: "Documentation and tutorials are still being improved. Web Bluetooth requires Chrome or Edge (desktop / Android). Safari and Firefox are not supported; on iOS, use a Web Bluetooth browser such as Bluefy.",
         noticeCta: "Send feedback",
         termsEyebrow: "Usage policy",
-        termsTitle: "Free for education, research, prototypes, and non-commercial apps. Commercial use requires a separate agreement.",
-        termsLead: "Following the ORPHE-CORE.js / ORPHE-INSOLE.js policy, ORPHE-CORE-INSOLE.js is free to use and modify for education and workshops, non-commercial academic research, personal projects, prototypes and internal validation, and free non-commercial apps or services built with ORPHE CORE / INSOLE.",
+        termsTitle: "Free for all non-commercial projects. Commercial use requires a separate agreement.",
+        termsLead: "This SDK carries over the policy of the earlier ORPHE-CORE.js / ORPHE-INSOLE.js. You can use and modify it freely at no cost for personal projects, prototypes and internal validation, education and workshops, non-commercial research at universities and similar institutions, and free or non-commercial apps and services.",
         termsFreeTag: "Free use",
         termsLicenseTitle: "Free use",
         termsLicenseBody: "Education/workshops, academic non-commercial research, personal creative projects, prototypes/internal experiments, and free non-commercial services are allowed.",
@@ -2051,8 +2051,8 @@ document.getElementById("connect").onclick = () =&gt;
         navTerms: "利用規約",
         languageLabel: "言語",
         heroEyebrow: "ORPHE CORE / ORPHE INSOLE 向け Web Bluetooth SDK",
-        heroCopy1: "ひとつのAPIで、ORPHE COREもORPHE INSOLEも。",
-        heroCopy2: "足に着けるIMUセンサー「ORPHE CORE」と、圧力センサー内蔵スマートインソール「ORPHE INSOLE」。どちらもこのSDKひとつで、Web Bluetooth経由でブラウザアプリにつながります。",
+        heroCopy1: "ひとつのSDKで、2つのデバイスをブラウザへ。",
+        heroCopy2: "小型のIMUセンサー「ORPHE CORE」と、圧力センサー内蔵スマートインソール「ORPHE INSOLE」。このSDKを使えば、どちらのデバイスもWeb Bluetooth経由でシームレスにブラウザアプリと連携できます。",
         heroExamples: "サンプル集を開く",
         heroStart: "3分で始める",
         heroGithub: "GitHubを見る",
@@ -2073,10 +2073,10 @@ document.getElementById("connect").onclick = () =&gt;
         feature3Body: "互換クラス <code>Orphe</code> / <code>OrpheInsole</code> は <code>got*</code> コールバックを保持します。toolkitが作るインスタンスは新APIなので、移行時は <code>on()</code> または <code>attachLegacyCallbacks()</code> を使います。",
         productEyebrow: "対応製品",
         productTitle: "2つのデバイス、1つのSDK。アイデアに合うセンサーを選べます。",
-        productLead: "足の甲や靴ひもに装着して動きを捉えるORPHE COREと、中敷きとして足裏圧まで計測するORPHE INSOLE。用途に合わせて選んでも、両方を同時につないでも、同じコードで扱えます。",
+        productLead: "身体の動きをリアルタイムに捉える小型IMUセンサー「ORPHE CORE」と、足裏の圧力分布まで計測可能なスマートインソール「ORPHE INSOLE」。用途に合わせて選んでも、両方を同時に接続しても、まったく同じコードでシームレスに扱うことができます。",
         coreImageCaption: "足部装着型IMUモジュール",
-        coreTitle: "靴に取り付ける小型モーションセンサー。",
-        coreLead: "ORPHE COREは、靴ひもに取り付けるシューレースマウントや対応シューズで足に装着する6軸IMUセンサーです。生のセンサー値に加えて、歩数・歩容タイプ・ストライド・プロネーションなどの歩容解析結果をデバイス側で計算して送ります。",
+        coreTitle: "アイデア次第で自在に使える、身体動作計測のための小型モーションセンサー。",
+        coreLead: "ORPHE COREは、身体の動きを高精度にトラッキングできる、わずか約20gの軽量6軸IMUセンサーデバイスです。生のセンサー値に加えて、歩数・歩容タイプ・ストライド・プロネーションなどの歩容解析結果をデバイス側で計算して送ります。",
         coreSpecSensorsTag: "センサー",
         coreSpecSensorsTitle: "6軸IMU + デバイス内歩容解析",
         coreSpecSensorsBody: "3軸加速度・3軸角速度をCORE 3.0では最大200Hzでサンプリングします。歩容イベントは歩単位で配送します。",
@@ -2255,8 +2255,8 @@ document.getElementById("connect").onclick = () =&gt;
         noticeBody: "ドキュメントとチュートリアルは整備中です。Web BluetoothにはChromeまたはEdge（デスクトップ / Android）が必要です。SafariとFirefoxは非対応で、iOSではBluefyなどのWeb Bluetooth対応ブラウザを使ってください。",
         noticeCta: "フィードバックを送る",
         termsEyebrow: "利用方針",
-        termsTitle: "教育・研究・試作・非商用アプリは無償利用。有料・商用利用は別途契約が必要です。",
-        termsLead: "ORPHE-CORE.js / ORPHE-INSOLE.jsの方針に従い、ORPHE-CORE-INSOLE.jsは教育・ワークショップ、大学・研究機関などでの非商用研究、個人制作、試作・社内検証、ORPHE CORE / INSOLEを使った無償アプリ・非商用サービスについて、改変を含めて無償で利用できる方針です。",
+        termsTitle: "非商用プロジェクトはすべて無料。商用利用には別途契約が必要です。",
+        termsLead: "本SDKは、従来の「ORPHE-CORE.js / ORPHE-INSOLE.js」の方針を引き継いでいます。個人制作やプロトタイプの社内検証をはじめ、教育・ワークショップ、大学等での非商用研究、無償アプリ・非商用サービスの開発において、改変を含めて無償で自由にご利用いただけます。",
         termsFreeTag: "無償利用",
         termsLicenseTitle: "無償で使える範囲",
         termsLicenseBody: "教育・ワークショップ、大学・研究機関での非商用研究、個人制作、試作・社内検証、無償の非商用サービスでの利用を認めています。",
