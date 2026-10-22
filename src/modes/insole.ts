@@ -62,7 +62,7 @@ export const INSOLE_FIFO_MIN_RELEASE_DATE = 20260510;
 /**
  * 個体別の圧力校正係数を持つ INSOLE FW の最小リリース日（`YYYYMMDD`）。
  * これ以降の FW では begin() で係数を取得し、圧力の N 換算に使う。
- * それより古い FW（および FW 不明）は固定式で換算する。
+ * それより古い FW（および FW 不明）は既定係数（ch ごとの多項式）で換算する。
  */
 export const INSOLE_PRESSURE_CALIBRATION_MIN_RELEASE_DATE = 20260428;
 

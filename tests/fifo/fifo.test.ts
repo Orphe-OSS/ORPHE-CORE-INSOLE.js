@@ -29,7 +29,6 @@ import {
   timestampToStr,
 } from '../../src/fifo/protocol.ts';
 import { FifoRecorder } from '../../src/fifo/recorder.ts';
-import { legacyPressureToNewton } from '../../src/protocol/pressure-calibration.ts';
 import type { PressureCalibration } from '../../src/protocol/pressure-calibration.ts';
 import type { FifoRequestRange } from '../../src/fifo/protocol.ts';
 
@@ -257,7 +256,7 @@ test('rawStoreToCSV: CORE は圧力の列がないヘッダで 8 行ずつ', () 
   assert.equal(lines[1]!.split(', ').length, 8);
 });
 
-test('packetToCsvRows: 1 パケット 4 行。timestamp は 5ms 刻み、圧力は固定式で N', () => {
+test('packetToCsvRows: 1 パケット 4 行。timestamp は 5ms 刻み、圧力は既定係数で N', () => {
   const rows = packetToCsvRows(makeFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }));
   assert.deepEqual(rows, [
     '10, 01:02:03:456,   280.00,    -7.00,     0.00,   4.0000,  -1.0000,   0.0000,  22.5012,   6.9793,  31.8015,   3.1081,   3.7148,   0.0000',
@@ -285,7 +284,7 @@ test('rawStoreToCSV: ヘッダ + 時刻順の行。データパケット以外�
   ]);
 });
 
-test('CSV: 個体別校正係数を渡すと、その ch は係数で、null の ch は旧式で N に換算する', () => {
+test('CSV: 個体別校正係数を渡すと、その ch は係数で、null の ch は既定係数で N に換算する', () => {
   const pressRaw = [100, 200, 300, 400, 500, 600];
   const dv = makeFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }, pressRaw);
   const calibrations: (PressureCalibration | null)[] = [
@@ -301,7 +300,7 @@ test('CSV: 個体別校正係数を渡すと、その ch は係数で、null の
     assert.deepEqual(cells.slice(0, 8), plain[i]!.split(', ').slice(0, 8)); // serial / timestamp / gyro / acc は同じ
     assert.equal(Number(cells[8]), 100);
     assert.equal(Number(cells[9]), 400);
-    assert.equal(Number(cells[10]), Number(legacyPressureToNewton(300).toFixed(4)));
+    assert.equal(Number(cells[10]), Number(pressureToN(300, 3).toFixed(4)));
   }
   const store = new Map<number, DataView>([[10, dv]]);
   assert.equal(rawStoreToCSV(store, calibrations).split('\n')[1], rows[0]);

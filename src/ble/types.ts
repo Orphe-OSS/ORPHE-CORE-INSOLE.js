@@ -137,6 +137,8 @@ export interface GattIo {
   startNotify(uuid: string, options?: OperationOptions): Promise<void>;
   /** notify を停止する（uuid は論理名） */
   stopNotify(uuid: string, options?: OperationOptions): Promise<void>;
+  /** GATT 接続中なら true（read / write の前に「勝手に接続しない」判定をしたいときに使う） */
+  isConnected?(): boolean;
 }
 
 /** scan / read / write / notify 操作ごとの上書きオプション */

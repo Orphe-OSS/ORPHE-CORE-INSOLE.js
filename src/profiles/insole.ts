@@ -126,7 +126,7 @@ export interface InsoleSensorFields {
   press: InsolePress;
   /**
    * 6ch 圧力 [N]（mode 3/4 のみ）。
-   * 対応 FW なら begin() で取得した個体別係数、それ以外は固定式で換算する。
+   * 対応 FW なら begin() で取得した個体別係数、それ以外は既定係数（ch ごとの多項式）で換算する。
    */
   converted_press: InsolePress;
   /** 角速度 [dps]（レンジ別センサー感度で換算） */
@@ -378,6 +378,19 @@ export interface InsoleCommands {
   setDataStreamingMode(mode: number): Promise<void>;
   /** 解析ログ（歩数など）をリセットする */
   resetAnalysisLogs(): Promise<void>;
+  /**
+   * 接続中に個体別圧力校正係数を取り直し、`profile.pressure_calibrations` を更新する。
+   * 例外は出さない。未接続・非対応 FW・全 ch 応答なしなどで取れなければ null（既定係数で換算）
+   */
+  fetchPressureCalibrations(options?: PressureCalibrationFetchOptions): Promise<(PressureCalibration | null)[] | null>;
+}
+
+/** {@link InsoleCommands.fetchPressureCalibrations} のオプション（省略時は insoleProfile() の設定） */
+export interface PressureCalibrationFetchOptions {
+  /** 1ch あたりの応答待ち [ms] */
+  timeoutMs?: number;
+  /** 1ch あたりの試行回数 */
+  retries?: number;
 }
 
 /** InsoleProfile と GATT 操作から {@link InsoleCommands} を作る */
@@ -393,11 +406,19 @@ export function insoleCommands(profile: InsoleProfile, io: GattIo): InsoleComman
     resetAnalysisLogs() {
       return io.write('DEVICE_INFORMATION', [DEVICE_INFORMATION_OPCODE.RESET_ANALYSIS_LOGS]);
     },
+    fetchPressureCalibrations(options) {
+      return profile.refetchPressureCalibrations(io, options);
+    },
   };
 }
 
 /** 係数取得の間に使う配信モード（圧力を含むモードでないと FW が応答しない） */
 const PRESSURE_CALIBRATION_FETCH_MODE = 4;
+
+/** 係数取得に使う配信モード。圧力を含むモードならそのまま、含まなければ mode 4 */
+function pressureCalibrationFetchMode(mode: number): number {
+  return INSOLE_STREAMING_MODES[mode]?.fields.press ? mode : PRESSURE_CALIBRATION_FETCH_MODE;
+}
 
 type BeginLog = NonNullable<BeginContext['log']>;
 
@@ -429,11 +450,19 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
   /**
    * begin() で取得した個体別圧力校正係数（index = センサー番号 0..5）。
    * 旧 FW・未取得は null。FW に値が書かれていない ch はプレースホルダとして null になり、
-   * その ch だけ固定式で換算する。
+   * その ch だけ既定係数（ch ごとの多項式）で換算する。
+   * 接続中は `ble.commands.fetchPressureCalibrations()` で取り直せる。
    */
   pressure_calibrations: (PressureCalibration | null)[] | null = null;
   /** 校正係数の応答待ち（センサー番号 → resolve） */
   private readonly pendingCalibration = new Map<number, (calibration: PressureCalibration) => void>();
+  /** begin() 時の FW 情報とログ出力先（取り直しで使う） */
+  private firmware: FirmwareInfo | null = null;
+  private log: BeginLog = () => {};
+  /** begin() のたびに進める。取り直しの結果が古い接続のものなら捨てる */
+  private calibrationGeneration = 0;
+  /** 実行中の取り直し（同時に呼ばれたら同じ Promise を返す） */
+  private refetching: Promise<(PressureCalibration | null)[] | null> | null = null;
 
   private readonly defaults: InsoleProfileOptions;
   // serial 追跡（modular 差分・初期化フラグ方式）
@@ -485,14 +514,18 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
 
     // 取得は毎回行う（切断後に別デバイスへ繋ぎ替えても古い係数を使わない）
     this.pressure_calibrations = null;
+    this.calibrationGeneration++;
     const log = context.log ?? (() => {});
+    this.firmware = context.firmware;
+    this.log = log;
     if (this.shouldFetchPressureCalibration(context.firmware, log)) {
       // FW は圧力を含む配信モードのときだけ応答し、応答は SENSOR_VALUES の notify で届く。
       // 要求モードが圧力を含まなければ、取得の間だけ全センサーのモードにする
-      const fetchMode = INSOLE_STREAMING_MODES[mode]!.fields.press ? mode : PRESSURE_CALIBRATION_FETCH_MODE;
+      const fetchMode = pressureCalibrationFetchMode(mode);
       await this.setDataStreamingMode(transport, fetchMode);
       await transport.startNotify('SENSOR_VALUES', options);
-      this.pressure_calibrations = await this.fetchPressureCalibrations(transport, options, log);
+      const fetched = await this.fetchPressureCalibrations(transport, options, log, this.pressureCalibrationSettings());
+      this.pressure_calibrations = fetched.calibrations;
       if (fetchMode !== mode) await this.setDataStreamingMode(transport, mode);
       await syncDeviceTime(transport, { samples: this.defaults.timeSyncSamples ?? 3 });
       return 'done begin(); SENSOR VALUES';
@@ -520,16 +553,21 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
    */
   private shouldFetchPressureCalibration(firmware: FirmwareInfo | null, log: BeginLog): boolean {
     if (!this.pressureCalibrationSettings().fetch) {
-      log('圧力校正: 取得無効（pressureCalibration.fetch = false）。固定式で換算');
+      log('圧力校正: 取得無効（pressureCalibration.fetch = false）。既定係数で換算');
       return false;
     }
+    return this.supportsPressureCalibration(firmware, log);
+  }
+
+  /** FW が係数取得に対応しているか（リリース日がしきい値以上）。FW 不明は非対応扱い */
+  private supportsPressureCalibration(firmware: FirmwareInfo | null, log: BeginLog): boolean {
     if (!firmware) {
-      log('圧力校正: FW 不明のため取得しません。固定式で換算');
+      log('圧力校正: FW 不明のため取得しません。既定係数で換算');
       return false;
     }
     const threshold = INSOLE_PRESSURE_CALIBRATION_MIN_RELEASE_DATE;
     if (firmware.releaseDate < threshold) {
-      log(`圧力校正: 非対応 FW（リリース日 ${firmware.releaseDate} < ${threshold}）。固定式で換算`);
+      log(`圧力校正: 非対応 FW（リリース日 ${firmware.releaseDate} < ${threshold}）。既定係数で換算`);
       return false;
     }
     log(`圧力校正: 対応 FW（リリース日 ${firmware.releaseDate}）。係数を取得します`);
@@ -537,16 +575,74 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
   }
 
   /**
+   * 接続中に校正係数を取り直す（{@link InsoleCommands.fetchPressureCalibrations} の実体）。
+   * 例外は出さず onError も呼ばない。取れなければ null にして既定係数で換算する。
+   * 全 ch が揃うまで pressure_calibrations は前の値のまま（途中の値は公開しない）
+   */
+  refetchPressureCalibrations(
+    io: GattIo,
+    options: PressureCalibrationFetchOptions = {}
+  ): Promise<(PressureCalibration | null)[] | null> {
+    if (this.refetching) return this.refetching;
+    const task = (async () => {
+      const generation = this.calibrationGeneration;
+      let calibrations: (PressureCalibration | null)[] | null = null;
+      try {
+        calibrations = await this.runRefetchPressureCalibrations(io, options);
+      } catch {
+        calibrations = null;
+      }
+      // 取得中に begin() し直した（別の接続になった）なら、古い結果で上書きしない
+      if (generation !== this.calibrationGeneration) return this.pressure_calibrations;
+      this.pressure_calibrations = calibrations;
+      return calibrations;
+    })();
+    this.refetching = task;
+    void task.finally(() => {
+      if (this.refetching === task) this.refetching = null;
+    });
+    return task;
+  }
+
+  private async runRefetchPressureCalibrations(
+    io: GattIo,
+    options: PressureCalibrationFetchOptions
+  ): Promise<(PressureCalibration | null)[] | null> {
+    const log = this.log;
+    // 未接続で write すると chooser が開くので、その前に止める
+    if (this.streaming_mode === null || (io.isConnected && !io.isConnected())) {
+      log('圧力校正: 未接続のため取り直しません。既定係数で換算');
+      return null;
+    }
+    if (!this.supportsPressureCalibration(this.firmware, log)) return null;
+
+    const settings = this.pressureCalibrationSettings();
+    const timeoutMs = options.timeoutMs ?? settings.timeoutMs;
+    const retries = options.retries ?? settings.retries;
+    const silent: OperationOptions = { silent: true };
+    const mode = this.streaming_mode;
+    const fetchMode = pressureCalibrationFetchMode(mode);
+    if (fetchMode !== mode) await this.setDataStreamingMode(io, fetchMode, silent);
+    try {
+      const fetched = await this.fetchPressureCalibrations(io, silent, log, { timeoutMs, retries });
+      // 1ch も応答がなければ非対応・切断とみなす
+      return fetched.missing === PRESSURE_SENSOR_COUNT ? null : fetched.calibrations;
+    } finally {
+      if (fetchMode !== mode) await this.setDataStreamingMode(io, mode, silent).catch(() => {});
+    }
+  }
+
+  /**
    * 6ch ぶんの校正係数を 1ch ずつ取得し、ch ごとの結果と集計をログに出す。
-   * 無応答は試行回数まで再送し、使い切った ch は固定式で換算する（begin() は止めない）。
-   * FW に値が書かれていない ch（プレースホルダ）も固定式にする。
+   * 無応答は試行回数まで再送し、使い切った ch は既定係数で換算する（begin() は止めない）。
+   * FW に値が書かれていない ch（プレースホルダ）も既定係数にする。
    */
   private async fetchPressureCalibrations(
     transport: GattIo,
     options: OperationOptions,
-    log: BeginLog
-  ): Promise<(PressureCalibration | null)[]> {
-    const { timeoutMs, retries } = this.pressureCalibrationSettings();
+    log: BeginLog,
+    { timeoutMs, retries }: { timeoutMs: number; retries: number }
+  ): Promise<{ calibrations: (PressureCalibration | null)[]; missing: number }> {
     const result: (PressureCalibration | null)[] = [];
     let calibrated = 0;
     let placeholder = 0;
@@ -558,11 +654,11 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
       }
       if (!received) {
         missing++;
-        log(`圧力校正 ch${sensorIndex}: 応答なし（${retries} 回）。固定式で換算`);
+        log(`圧力校正 ch${sensorIndex}: 応答なし（${retries} 回）。既定係数で換算`);
         result.push(null);
       } else if (isPressureCalibrationPlaceholder(received)) {
         placeholder++;
-        log(`圧力校正 ch${sensorIndex}: 未書込（func 0・係数すべて 1.0）。固定式で換算`, received);
+        log(`圧力校正 ch${sensorIndex}: 未書込（func 0・係数すべて 1.0）。既定係数で換算`, received);
         result.push(null);
       } else {
         calibrated++;
@@ -571,7 +667,7 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
       }
     }
     log(`圧力校正: 個体別係数 ${calibrated}ch / 未書込 ${placeholder}ch / 応答なし ${missing}ch`);
-    return result;
+    return { calibrations: result, missing };
   }
 
   /** 1ch の校正係数を要求し、応答か timeout まで待つ。無応答は null */
@@ -619,17 +715,21 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
     const calibrations = this.pressure_calibrations;
     return {
       ...press,
-      values: press.values.map((raw, i) => pressureToNewton(raw, calibrations ? calibrations[i] : null)),
+      values: press.values.map((raw, i) => pressureToNewton(raw, calibrations ? calibrations[i] : null, i)),
     };
   }
 
   /** streaming mode（1/3/4）を書き込む。接続中の切替にも使える */
-  async setDataStreamingMode(transport: GattIo, mode: number): Promise<void> {
+  async setDataStreamingMode(transport: GattIo, mode: number, options?: OperationOptions): Promise<void> {
     const normalizedMode = Number(mode);
     if (!Number.isInteger(normalizedMode) || !INSOLE_STREAMING_MODES[normalizedMode]) {
       throw new TransportError('INVALID_MODE', `Invalid ORPHE INSOLE data streaming mode: ${mode}. Use 1, 3, or 4.`);
     }
-    await transport.write('DEVICE_INFORMATION', Uint8Array.from([DEVICE_INFORMATION_OPCODE.SET_STREAMING_MODE, normalizedMode]));
+    await transport.write(
+      'DEVICE_INFORMATION',
+      Uint8Array.from([DEVICE_INFORMATION_OPCODE.SET_STREAMING_MODE, normalizedMode]),
+      options
+    );
     this.streaming_mode = normalizedMode;
   }
 
