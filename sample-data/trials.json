@@ -1,0 +1,231 @@
+{
+  "release": {
+    "repository": "Orphe-OSS/ORPHE-CORE-INSOLE.js",
+    "tag": "sample-data-v1",
+    "datasetDir": "orphe-insole-sample-data",
+    "allArchive": "orphe-insole-sample-data.zip",
+    "allArchiveBytes": 50910800,
+    "allArchiveSha256": "5ea744e1ecf2d14f4789f0db9ec750c3f186f418bc3e6f471c36f8be8dc9c41d"
+  },
+  "recordedOn": "2026-10-21",
+  "samplingHz": 208.3,
+  "trials": [
+    {
+      "id": "01_normal_walking",
+      "name": { "ja": "通常歩行（5 m）", "en": "Normal walking (5 m)" },
+      "group": "normal",
+      "affectedSide": null,
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "00_normal_walking_5m", "syncCondition": "5m歩行", "video": "mosaic/00_normal_walking_5m_video.mp4", "poster": "mosaic/00_normal_walking_5m_poster.jpg" },
+      "durationS": 13.2,
+      "archive": "orphe-insole-sample-01_normal_walking.zip",
+      "archiveBytes": 1923948,
+      "archiveSha256": "9036c1f3afdbc939e01a5a3d52d6b0fe6646f341460883632428e422146fe3c7",
+      "metrics": {
+        "strideTime": [1.06, 1.11], "stance": [64, 64], "swingTime": [0.39, 0.39], "strideLength": [1.30, 1.31], "speed": [1.13, 1.18],
+        "strikeAngle": [-15, -18], "toeOffAngle": [-68, -68], "footHeight": [15, 15], "swingWidth": [2, 2], "footAngle": [-14, -16],
+        "icAccZ": [32, 26], "toeOffGyroX": [-505, -349], "swingVelY": [3.9, 2.9]
+      }
+    },
+    {
+      "id": "02_short_stepping",
+      "name": { "ja": "小刻み歩行", "en": "Short-stepping gait" },
+      "group": "bilateral",
+      "affectedSide": null,
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "01_short_stepping", "syncCondition": "小刻み歩行", "video": "mosaic/01_short_stepping_video.mp4", "poster": "mosaic/01_short_stepping_poster.jpg" },
+      "durationS": 21.3,
+      "archive": "orphe-insole-sample-02_short_stepping.zip",
+      "archiveBytes": 2859300,
+      "archiveSha256": "fa96716297e72b0d57aa5b46a96a1b54d2ad85077df1ec7fe0414c8a0c667c30",
+      "metrics": {
+        "strideTime": [0.75, 0.79], "stance": [68, 69], "swingTime": [0.24, 0.24], "strideLength": [0.32, 0.31], "speed": [0.42, 0.39],
+        "strikeAngle": [0, 0], "toeOffAngle": [-29, -27], "footHeight": [6, 6], "swingWidth": [0, 0], "footAngle": [-16, -13],
+        "icAccZ": [31, 24], "toeOffGyroX": [-228, -218], "swingVelY": [1.7, 1.8]
+      }
+    },
+    {
+      "id": "03_freezing",
+      "name": { "ja": "すくみ足", "en": "Freezing of gait" },
+      "group": "bilateral",
+      "affectedSide": null,
+      "strideAverage": false,
+      "highlights": [{ "key": "freezing", "start": 4.8, "end": 8.6 }],
+      "source": { "dir": "02_freezing", "syncCondition": "すくみ足", "video": "mosaic/02_freezing_video.mp4", "poster": "mosaic/02_freezing_poster.jpg" },
+      "durationS": 13.3,
+      "archive": "orphe-insole-sample-03_freezing.zip",
+      "archiveBytes": 2717368,
+      "archiveSha256": "f474989244a97b2a9ae237cda0d20b50e6f1316fc914a44250ded44af5364e9e",
+      "metricsNote": "freezing",
+      "metrics": {
+        "strideTime": [0.87, 0.85], "stance": [60, 68], "swingTime": [0.35, 0.27], "strideLength": [0.72, 0.45], "speed": [0.83, 0.55],
+        "strikeAngle": [1, 0], "toeOffAngle": [-47, -29], "footHeight": [10, 5], "swingWidth": [0, 0], "footAngle": [-11, -9],
+        "icAccZ": [19, 20], "toeOffGyroX": [-258, -309], "swingVelY": [1.9, 2.9]
+      }
+    },
+    {
+      "id": "04_scissor",
+      "name": { "ja": "ハサミ足", "en": "Scissor gait" },
+      "group": "bilateral",
+      "affectedSide": null,
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "04_scissor", "syncCondition": "ハサミ足", "video": "mosaic/04_scissor_video.mp4", "poster": "mosaic/04_scissor_poster.jpg" },
+      "durationS": 22.0,
+      "archive": "orphe-insole-sample-04_scissor.zip",
+      "archiveBytes": 3204460,
+      "archiveSha256": "dbda3694ea662366ab96a0c1c997fe201eaeb44f0b2c0f62a18fd7826eea453d",
+      "metrics": {
+        "strideTime": [1.55, 1.66], "stance": [75, 78], "swingTime": [0.40, 0.38], "strideLength": [0.64, 0.69], "speed": [0.41, 0.43],
+        "strikeAngle": [9, 11], "toeOffAngle": [-34, -45], "footHeight": [12, 9], "swingWidth": [17, 9], "footAngle": [28, 13],
+        "icAccZ": [68, 29], "toeOffGyroX": [-220, -243], "swingVelY": [1.9, 1.9]
+      }
+    },
+    {
+      "id": "05_circumduction",
+      "name": { "ja": "ぶん回し歩行", "en": "Circumduction gait" },
+      "group": "unilateral",
+      "affectedSide": "left",
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "02_circumduction", "syncCondition": "ぶん回し歩行", "video": "mosaic/02_circumduction_video.mp4", "poster": "mosaic/02_circumduction_poster.jpg" },
+      "durationS": 19.1,
+      "archive": "orphe-insole-sample-05_circumduction.zip",
+      "archiveBytes": 2975729,
+      "archiveSha256": "0e23b8345a71384f98a20122b90c8dc410d60b2edfc5e9f03a189f8cb4b14f5d",
+      "metrics": {
+        "strideTime": [1.49, 1.47], "stance": [44, 73], "swingTime": [0.86, 0.42], "strideLength": [0.67, 0.67], "speed": [0.46, 0.46],
+        "strikeAngle": [5, 2], "toeOffAngle": [-13, -30], "footHeight": [16, 5], "swingWidth": [26, 1], "footAngle": [-13, -8],
+        "icAccZ": [94, 45], "toeOffGyroX": [-194, -357], "swingVelY": [1.3, 2.3]
+      }
+    },
+    {
+      "id": "06_steppage",
+      "name": { "ja": "鶏歩（下垂足）", "en": "Steppage gait (foot drop)" },
+      "group": "unilateral",
+      "affectedSide": "left",
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "03_steppage", "syncCondition": "鶏歩", "video": "mosaic/03_steppage_video.mp4", "poster": "mosaic/03_steppage_poster.jpg" },
+      "durationS": 20.2,
+      "archive": "orphe-insole-sample-06_steppage.zip",
+      "archiveBytes": 2943980,
+      "archiveSha256": "cc67b750efb8608c721811ab97544d6a777528eb2b093fa9c1b60e261cf76f3a",
+      "metrics": {
+        "strideTime": [1.47, 1.44], "stance": [50, 78], "swingTime": [0.71, 0.32], "strideLength": [0.61, 0.71], "speed": [0.43, 0.48],
+        "strikeAngle": [18, 5], "toeOffAngle": [-22, -52], "footHeight": [5, 8], "swingWidth": [3, 1], "footAngle": [-6, -10],
+        "icAccZ": [55, 36], "toeOffGyroX": [-183, -390], "swingVelY": [1.3, 2.4]
+      }
+    },
+    {
+      "id": "07_antalgic",
+      "name": { "ja": "逃避性歩行", "en": "Antalgic gait" },
+      "group": "unilateral",
+      "affectedSide": "left",
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "05_antalgic", "syncCondition": "逃避性", "video": "mosaic/05_antalgic_video.mp4", "poster": "mosaic/05_antalgic_poster.jpg" },
+      "durationS": 21.8,
+      "archive": "orphe-insole-sample-07_antalgic.zip",
+      "archiveBytes": 3057111,
+      "archiveSha256": "0d2d00ba0f124469c88ea26fd75d31e77077b7e2c9163629a7f5ece7d420f1f3",
+      "metrics": {
+        "strideTime": [1.44, 1.44], "stance": [60, 71], "swingTime": [0.58, 0.40], "strideLength": [0.63, 0.62], "speed": [0.43, 0.44],
+        "strikeAngle": [3, -2], "toeOffAngle": [-29, -34], "footHeight": [5, 9], "swingWidth": [1, 1], "footAngle": [-10, -12],
+        "icAccZ": [32, 27], "toeOffGyroX": [-162, -387], "swingVelY": [1.2, 1.8]
+      }
+    },
+    {
+      "id": "08_trendelenburg",
+      "name": { "ja": "トレンデレンブルク歩行", "en": "Trendelenburg gait" },
+      "group": "unilateral",
+      "affectedSide": "left",
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "06_trendelenburg", "syncCondition": "トレンデレンブルク", "video": "mosaic/06_trendelenburg_video.mp4", "poster": "mosaic/06_trendelenburg_poster.jpg" },
+      "durationS": 20.2,
+      "archive": "orphe-insole-sample-08_trendelenburg.zip",
+      "archiveBytes": 2902285,
+      "archiveSha256": "dd82e56ec547c6226d55f5e4629d8e89752601a593d5d06ab4bf933f82661ae1",
+      "metrics": {
+        "strideTime": [1.59, 1.61], "stance": [66, 65], "swingTime": [0.55, 0.54], "strideLength": [0.79, 0.82], "speed": [0.47, 0.52],
+        "strikeAngle": [3, -2], "toeOffAngle": [-46, -36], "footHeight": [9, 9], "swingWidth": [3, 2], "footAngle": [-6, -11],
+        "icAccZ": [18, 31], "toeOffGyroX": [-306, -302], "swingVelY": [1.9, 1.6]
+      }
+    },
+    {
+      "id": "09_duchenne",
+      "name": { "ja": "デュシャンヌ歩行", "en": "Duchenne gait" },
+      "group": "unilateral",
+      "affectedSide": "left",
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "07_duchenne", "syncCondition": "デュシャンヌ歩行", "video": "mosaic/07_duchenne_video.mp4", "poster": "mosaic/07_duchenne_poster.jpg" },
+      "durationS": 20.7,
+      "archive": "orphe-insole-sample-09_duchenne.zip",
+      "archiveBytes": 3023378,
+      "archiveSha256": "244402fc8a26cd594c39605b4614fc30b441cc386cb037728ea8055daeffd03a",
+      "metrics": {
+        "strideTime": [1.65, 1.64], "stance": [72, 54], "swingTime": [0.46, 0.76], "strideLength": [0.76, 0.67], "speed": [0.46, 0.43],
+        "strikeAngle": [-2, -1], "toeOffAngle": [-34, -28], "footHeight": [8, 5], "swingWidth": [1, 4], "footAngle": [-11, -22],
+        "icAccZ": [33, 45], "toeOffGyroX": [-294, -213], "swingVelY": [2.3, 1.2]
+      }
+    },
+    {
+      "id": "10_running_6kmh",
+      "name": { "ja": "トレッドミル走行 6 km/h", "en": "Treadmill running 6 km/h" },
+      "group": "running",
+      "affectedSide": null,
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "08_running_6kmh", "syncCondition": "ランニング6kmh", "video": "mosaic/08_running_6kmh_video.mp4", "poster": "mosaic/08_running_6kmh_poster.jpg" },
+      "durationS": 32.8,
+      "archive": "orphe-insole-sample-10_running_6kmh.zip",
+      "archiveBytes": 7909797,
+      "archiveSha256": "c31b50422feffa235d940a04291584806aa29b52cb6c952d1d91cb44344ece36",
+      "metrics": {
+        "strideTime": [0.74, 0.75], "stance": [39, 36], "swingTime": [0.46, 0.47], "strideLength": [1.09, 1.13], "speed": [1.43, 1.52],
+        "strikeAngle": [0, -1], "toeOffAngle": [-50, -43], "footHeight": [21, 25], "swingWidth": [5, 5], "footAngle": [-16, -18],
+        "icAccZ": [70, 78], "toeOffGyroX": [-430, -426], "swingVelY": [3.5, 3.7]
+      }
+    },
+    {
+      "id": "11_running_9kmh",
+      "name": { "ja": "トレッドミル走行 9 km/h", "en": "Treadmill running 9 km/h" },
+      "group": "running",
+      "affectedSide": null,
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "09_running_9kmh", "syncCondition": "ランニング9kmh", "video": "mosaic/09_running_9kmh_video.mp4", "poster": "mosaic/09_running_9kmh_poster.jpg" },
+      "durationS": 33.4,
+      "archive": "orphe-insole-sample-11_running_9kmh.zip",
+      "archiveBytes": 9038265,
+      "archiveSha256": "dafc39efca6f7e33a2b414bc93aeefb0981b578765b85c874f9ee083199a40a3",
+      "metrics": {
+        "strideTime": [0.74, 0.73], "stance": [33, 34], "swingTime": [0.49, 0.49], "strideLength": [1.56, 1.61], "speed": [2.09, 2.17],
+        "strikeAngle": [-2, -5], "toeOffAngle": [-56, -55], "footHeight": [33, 38], "swingWidth": [4, 5], "footAngle": [-15, -17],
+        "icAccZ": [76, 95], "toeOffGyroX": [-580, -644], "swingVelY": [4.7, 4.9]
+      }
+    },
+    {
+      "id": "12_running_12kmh",
+      "name": { "ja": "トレッドミル走行 12 km/h", "en": "Treadmill running 12 km/h" },
+      "group": "running",
+      "affectedSide": null,
+      "strideAverage": true,
+      "highlights": [],
+      "source": { "dir": "10_running_12kmh", "syncCondition": "ランニング12kmh", "video": "mosaic/10_running_12kmh_video.mp4", "poster": "mosaic/10_running_12kmh_poster.jpg" },
+      "durationS": 32.4,
+      "archive": "orphe-insole-sample-12_running_12kmh.zip",
+      "archiveBytes": 8343467,
+      "archiveSha256": "168c1df8b2d2f3847645a3886930c316570701a909fccaee28a677e3bd52a7cf",
+      "metrics": {
+        "strideTime": [0.73, 0.73], "stance": [30, 31], "swingTime": [0.51, 0.51], "strideLength": [2.07, 2.07], "speed": [2.86, 2.81],
+        "strikeAngle": [-3, -11], "toeOffAngle": [-62, -57], "footHeight": [46, 51], "swingWidth": [4, 3], "footAngle": [-13, -17],
+        "icAccZ": [83, 115], "toeOffGyroX": [-752, -811], "swingVelY": [5.9, 6.0]
+      }
+    }
+  ]
+}
