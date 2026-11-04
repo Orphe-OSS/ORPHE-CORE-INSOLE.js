@@ -399,6 +399,62 @@
       color: rgba(255, 255, 255, 0.75);
     }
 
+    .sample-showcase {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: 48px;
+      align-items: center;
+    }
+
+    .sample-terms {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .sample-terms a {
+      color: var(--ink);
+      text-decoration: underline;
+    }
+
+    .sample-posters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .sample-posters a {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #10151a;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .sample-posters a:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 40px rgba(15, 28, 34, 0.12);
+    }
+
+    .sample-posters img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      object-fit: cover;
+      object-position: 50% 55%;
+    }
+
+    .sample-posters span {
+      position: absolute;
+      inset: auto 0 0;
+      padding: 28px 10px 10px;
+      color: white;
+      background: linear-gradient(transparent, rgba(8, 11, 13, 0.78));
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
+    }
+
     @media (max-width: 980px) {
       .hero,
       .hero-inner {
@@ -414,7 +470,8 @@
       .product-showcase,
       .award-grid,
       .quick-start,
-      .example-grid {
+      .example-grid,
+      .sample-showcase {
         grid-template-columns: 1fr;
       }
 
@@ -462,6 +519,10 @@
 
       .hero-fact {
         min-height: 84px;
+      }
+
+      .sample-posters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .notice {
@@ -592,6 +653,7 @@
         <a href="#about" data-i18n="navAbout">概要</a>
         <a href="#product" data-i18n="navProduct">製品</a>
         <a href="#data" data-i18n="navData">取得データ</a>
+        <a href="sample-data/" data-i18n="navSampleData">サンプルデータ</a>
         <a href="#quick-start" data-i18n="navQuickStart">クイックスタート</a>
         <a href="#examples" data-i18n="navExamples">サンプル</a>
         <a href="#migration" data-i18n="navMigration">移行</a>
@@ -887,6 +949,39 @@
               <p data-i18n="commonDataRecordBody">FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260905以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。</p>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt" id="sample-data">
+      <div class="section-inner sample-showcase">
+        <div>
+          <p class="eyebrow" data-i18n="sampleEyebrow">サンプルデータ</p>
+          <h2 data-i18n="sampleTitle">実機で記録した歩行・走行データを、動画と一緒に。</h2>
+          <p class="lead" data-i18n="sampleLead">ORPHE INSOLE β で記録した、通常歩行・病的歩行の模擬8種・トレッドミル走行3速度の12試技です。動画と同期した波形をブラウザで確かめてから、CSV・ARKit骨格・動画をまとめて、または試技ごとにダウンロードできます。</p>
+          <div class="section-actions">
+            <a class="button light" href="sample-data/" data-i18n="sampleOpen">サンプルデータを見る</a>
+            <a class="button line" href="https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/releases/download/sample-data-v1/orphe-insole-sample-data.zip"><span data-i18n="sampleDownloadAll">すべてダウンロード</span><span class="meta">ZIP · 50.9 MB</span></a>
+          </div>
+          <p class="sample-terms" data-i18n-html="sampleTerms">ダウンロードする前に<a href="sample-data/#terms">利用条件</a>をご確認ください。データの再配布はできません。</p>
+        </div>
+        <div class="sample-posters">
+          <a href="sample-data/#trial-01_normal_walking">
+            <img src="sample-data/files/01_normal_walking/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialNormal">通常歩行</span>
+          </a>
+          <a href="sample-data/#trial-03_freezing">
+            <img src="sample-data/files/03_freezing/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialFreezing">すくみ足</span>
+          </a>
+          <a href="sample-data/#trial-05_circumduction">
+            <img src="sample-data/files/05_circumduction/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialCircumduction">ぶん回し歩行</span>
+          </a>
+          <a href="sample-data/#trial-12_running_12kmh">
+            <img src="sample-data/files/12_running_12kmh/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialRunning">走行 12 km/h</span>
+          </a>
         </div>
       </div>
     </section>
@@ -1364,6 +1459,7 @@ document.getElementById("connect").onclick = () =&gt;
         navAbout: "About",
         navProduct: "Devices",
         navData: "Data",
+        navSampleData: "Sample data",
         navQuickStart: "Quick start",
         navExamples: "Examples",
         navMigration: "Migration",
@@ -1465,6 +1561,16 @@ document.getElementById("connect").onclick = () =&gt;
         insoleDataGaitBody: "InsoleGait records per-step gait rows from INSOLE and exports CSV.",
         insoleDataSimTitle: "Simulator",
         insoleDataSimBody: "Develop without hardware: a virtual INSOLE that goes through the same parsing path as a real device.",
+        sampleEyebrow: "Sample data",
+        sampleTitle: "Walking and running data from real devices, with video.",
+        sampleLead: "12 trials recorded with ORPHE INSOLE β: normal walking, 8 simulated pathological gaits and treadmill running at 3 speeds. Check the waveforms synchronized with video in the browser, then download CSV, ARKit skeleton and video all at once or per trial.",
+        sampleOpen: "Browse the sample data",
+        sampleDownloadAll: "Download all",
+        sampleTerms: "Please read the <a href=\"sample-data/#terms\">terms of use</a> before downloading. The data may not be redistributed.",
+        sampleTrialNormal: "Normal walking",
+        sampleTrialFreezing: "Freezing of gait",
+        sampleTrialCircumduction: "Circumduction gait",
+        sampleTrialRunning: "Running 12 km/h",
         quickEyebrow: "Quick start",
         quickTitle: "Connect either device and print live data.",
         quickLead: "Serve this page over HTTPS or localhost in a Web Bluetooth-capable browser. Load the CDN build and get <code>OrpheCoreInsole</code> from <code>OrpheCoreInsoleJS</code>. With no profile specified, the chooser lists both CORE and INSOLE and detects the selected type.",
@@ -1597,6 +1703,7 @@ document.getElementById("connect").onclick = () =&gt;
         navAbout: "概要",
         navProduct: "製品",
         navData: "取得データ",
+        navSampleData: "サンプルデータ",
         navQuickStart: "クイックスタート",
         navExamples: "サンプル",
         navMigration: "移行",
@@ -1698,6 +1805,16 @@ document.getElementById("connect").onclick = () =&gt;
         insoleDataGaitBody: "InsoleGaitでINSOLEの1歩ごとの歩容行を記録し、CSVを出力できます。",
         insoleDataSimTitle: "シミュレータ",
         insoleDataSimBody: "実機なしで開発できます。実機と同じパース経路を通る仮想INSOLEです。",
+        sampleEyebrow: "サンプルデータ",
+        sampleTitle: "実機で記録した歩行・走行データを、動画と一緒に。",
+        sampleLead: "ORPHE INSOLE β で記録した、通常歩行・病的歩行の模擬8種・トレッドミル走行3速度の12試技です。動画と同期した波形をブラウザで確かめてから、CSV・ARKit骨格・動画をまとめて、または試技ごとにダウンロードできます。",
+        sampleOpen: "サンプルデータを見る",
+        sampleDownloadAll: "すべてダウンロード",
+        sampleTerms: "ダウンロードする前に<a href=\"sample-data/#terms\">利用条件</a>をご確認ください。データの再配布はできません。",
+        sampleTrialNormal: "通常歩行",
+        sampleTrialFreezing: "すくみ足",
+        sampleTrialCircumduction: "ぶん回し歩行",
+        sampleTrialRunning: "走行 12 km/h",
         quickEyebrow: "クイックスタート",
         quickTitle: "どちらのデバイスでも接続して、ライブデータを表示する。",
         quickLead: "Web Bluetooth対応ブラウザで、HTTPSまたはlocalhostから開いてください。CDNのビルドを読み込み、<code>OrpheCoreInsoleJS</code> から <code>OrpheCoreInsole</code> を取り出します。プロファイルを省略すると接続ダイアログにCOREとINSOLEの両方が出て、選んだデバイスを自動判別します。",

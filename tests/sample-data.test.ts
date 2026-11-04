@@ -4,7 +4,7 @@
  * - 時刻合わせ: 動画のジャンプ着地の推定、右足の補正、動画の再生位置
  * - ストライド平均: 接地の検出、定常ストライドの選択、0〜100% への正規化
  * - trials.json の ZIP 情報の書き換えが書式を崩さないこと
- * - trials.json とサンプルデータのページの ZIP リンク・サイズ・試技名が一致すること
+ * - trials.json とページ（サンプルデータ・ランディング）の ZIP リンク・サイズ・試技名が一致すること
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -233,11 +233,12 @@ test('ページの ZIP リンク・サイズ・試技名が trials.json と一�
 
   // Act
   const pages = ['sample-data/index.html', 'en/sample-data/index.html'].map((file) => outputs[file] ?? '');
+  const landings = ['index.html', 'en/index.html'].map((file) => outputs[file] ?? '');
 
   // Assert
   const allLink = `href="${base}${manifest.release.allArchive}"`;
   const allSize = `ZIP · ${megabytes(manifest.release.allArchiveBytes)} MB</span>`;
-  for (const html of pages) {
+  for (const html of [...pages, ...landings]) {
     assert.ok(html.includes(allLink), 'link to the full archive');
     assert.ok(html.includes(allSize), `full archive size ${allSize}`);
   }
