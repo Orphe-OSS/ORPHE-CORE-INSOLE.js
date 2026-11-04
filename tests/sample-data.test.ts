@@ -4,6 +4,7 @@
  * - 時刻合わせ: 動画のジャンプ着地の推定、右足の補正、動画の再生位置
  * - ストライド平均: 接地の検出、定常ストライドの選択、0〜100% への正規化
  * - trials.json の ZIP 情報の書き換えが書式を崩さないこと
+ * - trials.json とサンプルデータのページの ZIP リンク・サイズ・試技名が一致すること
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -23,6 +24,7 @@ import {
   updateArchiveInfo,
 } from '../scripts/sample-data.mjs';
 import type { Contact } from '../scripts/sample-data.mjs';
+import { buildLandingPages } from '../scripts/build-landing.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const FRAME_S = 1 / 30;
@@ -218,6 +220,39 @@ test('trials.json の試技・ZIP・指標がそろっている', () => {
     assert.equal(trial.affectedSide, trial.group === 'unilateral' ? 'left' : null, `${trial.id}: affectedSide`);
     assert.ok(trial.source.video.startsWith('mosaic/'), `${trial.id}: only mosaicked videos are published`);
     assert.ok(trial.source.poster.startsWith('mosaic/'), `${trial.id}: only mosaicked posters are published`);
+  }
+});
+
+test('ページの ZIP リンク・サイズ・試技名が trials.json と一致する', () => {
+  // Arrange
+  const manifest = readManifest(ROOT);
+  const base = `https://github.com/${manifest.release.repository}/releases/download/${manifest.release.tag}/`;
+  const megabytes = (bytes: number) => (bytes / 1e6).toFixed(1);
+  const { outputs, pageTranslations } = buildLandingPages();
+  const sampleTranslations = pageTranslations['sample-data/index.html']!;
+
+  // Act
+  const pages = ['sample-data/index.html', 'en/sample-data/index.html'].map((file) => outputs[file] ?? '');
+
+  // Assert
+  const allLink = `href="${base}${manifest.release.allArchive}"`;
+  const allSize = `ZIP · ${megabytes(manifest.release.allArchiveBytes)} MB</span>`;
+  for (const html of pages) {
+    assert.ok(html.includes(allLink), 'link to the full archive');
+    assert.ok(html.includes(allSize), `full archive size ${allSize}`);
+  }
+  for (const html of pages) {
+    for (const trial of manifest.trials) {
+      const card = new RegExp(`href="${(base + trial.archive).replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}">ZIP<span class="meta">([\\d.]+) MB</span>`);
+      assert.equal(html.match(card)?.[1], megabytes(trial.archiveBytes), `${trial.id}: card ZIP size`);
+      assert.ok(html.includes(`id="trial-${trial.id}"`), `${trial.id}: notes`);
+      assert.ok(html.includes(`· ${trial.durationS.toFixed(1)} s</span>`), `${trial.id}: duration`);
+    }
+  }
+  for (const trial of manifest.trials) {
+    const key = `t${trial.id.slice(0, 2)}Name`;
+    assert.equal(sampleTranslations.ja[key], trial.name.ja, `${trial.id}: ja name`);
+    assert.equal(sampleTranslations.en[key], trial.name.en, `${trial.id}: en name`);
   }
 });
 

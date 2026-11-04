@@ -111,7 +111,7 @@ pre {
 .nav-links {
   display: flex;
   align-items: center;
-  gap: 22px;
+  gap: 18px;
   color: #37414c;
   font-size: 14px;
   font-weight: 400;
@@ -119,6 +119,7 @@ pre {
 
 .nav-links a {
   padding: 8px 0;
+  white-space: nowrap;
   border-bottom: 2px solid transparent;
 }
 
@@ -226,6 +227,13 @@ h1 {
   border-color: var(--line);
   color: var(--ink);
   background: white;
+}
+
+/* ボタン内の補足（ファイルサイズなど） */
+.button .meta {
+  margin-left: 6px;
+  font-weight: 400;
+  opacity: 0.75;
 }
 
 .section {
@@ -401,7 +409,8 @@ footer {
   color: var(--muted);
 }
 
-@media (max-width: 980px) {
+/* ナビが 1 行に収まらない幅では 2 段にし、リンクは横スクロールにする */
+@media (max-width: 1180px) {
   .nav {
     align-items: flex-start;
     padding: 14px 0;
@@ -415,7 +424,9 @@ footer {
     gap: 18px;
     padding-bottom: 2px;
   }
+}
 
+@media (max-width: 980px) {
   h1 {
     font-size: 48px;
   }
