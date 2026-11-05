@@ -3,8 +3,13 @@
  *
  * INSOLE の FW（GaitAnalysisCore / StrideAnalyzer）は歩行中の歩容パラメーター
  * （ストライド・立脚期/遊脚期・接地パターン・プロネーション等）を計算し、
- * STEP_ANALYSIS characteristic で公開する。アクティブ状態になると 50Hz で
- * 自動 notify されるため、subscribe するだけでよい（read モード変更は不要）。
+ * STEP_ANALYSIS characteristic で公開する。subscribe するだけでよい（read モード変更は不要）。
+ *
+ * 送り方は FW で異なる（どちらのパケットも自動で判別してデコードする）:
+ * - FW 20260924 より前: 1歩ぶんを 3 種のサブパケット（header 51）に分けて送り、
+ *   motion も 50Hz で常時 notify される。
+ * - FW 20260924 以降: Step 検出時に 1 歩ぶんを 1 パケット（header 59）で送る。
+ *   motion は無く、静止中は notify が来ない（{@link InsoleGait.sendsOnlyOnSteps}）。
  *
  * 使い方:
  *   const gait = new InsoleGait(ble);            // ble は begin() 済み
@@ -14,7 +19,8 @@
  *   await gait.stop();
  */
 import { downloadCsv } from '../csv.ts';
-import { decodeGaitPacket } from './packet.ts';
+import { INSOLE_STEP_ANALYSIS_STEP_ONLY_MIN_RELEASE_DATE } from '../modes/insole.ts';
+import { GAIT_PACKET_HEADER, decodeGaitPacket } from './packet.ts';
 import type { GaitMotionPacket, GaitPacket } from './packet.ts';
 import { GAIT_CSV_HEADER, GaitAggregator, gaitRowToCsv } from './aggregator.ts';
 import type { GaitRow, GaitStepLossInfo, GaitStepLossStats } from './aggregator.ts';
@@ -44,6 +50,10 @@ export interface GaitHost {
   setNotifySink(uuid: string, sink: (value: DataView) => void): () => void;
   /** 解析中に起きた例外を上位へ通知する */
   reportError(error: unknown): void;
+  /** begin() で読んだ FW 情報。送り方（Step 検出時のみか）の判定に使う。不明なら null */
+  readonly firmware?: { readonly releaseDate: number } | null;
+  /** 接続先のプロファイル。`kind` が `'core'` なら FW による送り方の切替をしない */
+  readonly profile?: { readonly kind?: string };
 }
 
 
@@ -54,9 +64,9 @@ export interface GaitTransportInfo {
   receivedAt: number;
   /** 受信バイト数 */
   byteLength: number;
-  /** 先頭バイト（歩容解析パケットなら 51） */
+  /** 先頭バイト（歩容解析パケットなら 51、まとめパケットなら 59） */
   header: number | null;
-  /** サブヘッダー */
+  /** サブヘッダー（header 51 のときだけ。まとめパケットなどは null） */
   subheader: number | null;
   /** 歩容解析パケットとしてデコードできたか */
   valid: boolean;
@@ -74,6 +84,8 @@ export interface GaitDiagnostics {
   running: boolean;
   /** STEP_ANALYSIS を購読できているか */
   subscribed: boolean;
+  /** FW が Step 検出時だけ送るか（{@link InsoleGait.sendsOnlyOnSteps}） */
+  sendsOnlyOnSteps: boolean;
   /** 受け取った notify の総数 */
   transportNotifications: number;
   /** 有効パケット数 */
@@ -111,7 +123,7 @@ export class InsoleGait {
   // コールバック（ユーザが上書き）
   /** 1歩ぶんが揃うたびに呼ばれる */
   onGait: ((deviceId: number, row: GaitRow) => void) | null = null;
-  /** motion パケット（姿勢・変位の連続ストリーム）が届くたびに呼ばれる */
+  /** motion パケット（姿勢・変位の連続ストリーム）が届くたびに呼ばれる（FW 20260924 以降は届かない） */
   onMotion: ((deviceId: number, motion: GaitMotionPacket) => void) | null = null;
   /** デコードできたサブパケットをそのまま流す（種別を問わない） */
   onRaw: ((deviceId: number, packet: GaitPacket) => void) | null = null;
@@ -161,6 +173,17 @@ export class InsoleGait {
   }
 
   /**
+   * FW が STEP_ANALYSIS を Step 検出時だけ送るなら true（INSOLE FW 20260924 以降）。
+   * true のとき静止中は notify が来ないため、無通知を故障と判定しないこと。
+   * FW 不明・旧 FW・CORE は false。
+   */
+  get sendsOnlyOnSteps(): boolean {
+    if (this.ble.profile?.kind === 'core') return false;
+    const releaseDate = this.ble.firmware?.releaseDate;
+    return typeof releaseDate === 'number' && releaseDate >= INSOLE_STEP_ANALYSIS_STEP_ONLY_MIN_RELEASE_DATE;
+  }
+
+  /**
    * 集約結果と診断カウンタを捨てて初期状態へ戻す。
    * 解析中は何も変更しない（stop() してから呼ぶこと）。
    */
@@ -183,6 +206,7 @@ export class InsoleGait {
     return {
       running: this.running,
       subscribed: this.subscribed,
+      sendsOnlyOnSteps: this.sendsOnlyOnSteps,
       transportNotifications: this.transportNotifications,
       validPackets: this.validPackets,
       invalidPackets: this.invalidPackets,
@@ -362,7 +386,8 @@ export class InsoleGait {
     const receivedAt = Date.now();
     const byteLength = dv.byteLength;
     const header = byteLength > 0 ? dv.getUint8(0) : null;
-    const subheader = byteLength > 1 ? dv.getUint8(1) : null;
+    // サブヘッダーを持つのは従来フォーマット（header 51）だけ
+    const subheader = header === GAIT_PACKET_HEADER && byteLength > 1 ? dv.getUint8(1) : null;
     this.transportNotifications++;
     this.lastTransportAt = receivedAt;
     let packet: GaitPacket | null = null;

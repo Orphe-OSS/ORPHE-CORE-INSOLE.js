@@ -90,6 +90,7 @@ export {
   INSOLE_FIFO_MIN_RELEASE_DATE,
   INSOLE_MODES,
   INSOLE_PRESSURE_CALIBRATION_MIN_RELEASE_DATE,
+  INSOLE_STEP_ANALYSIS_STEP_ONLY_MIN_RELEASE_DATE,
   INSOLE_STREAMING_MODES,
   insoleStreamingModeOf,
 } from './modes/insole.ts';
@@ -132,6 +133,7 @@ export type {
   GaitOverviewPacket,
   GaitPacket,
   GaitPronationPacket,
+  GaitStepPacket,
   GaitStridePacket,
 } from './gait/packet.ts';
 export { GAIT_TYPES, STRIDE_DIRECTIONS } from './gait/packet.ts';

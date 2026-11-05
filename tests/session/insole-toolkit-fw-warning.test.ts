@@ -31,6 +31,7 @@ class FakeInsole {
 
 class FakeGait {
   isRunning = false;
+  sendsOnlyOnSteps = false;
   diagnostics?: () => unknown;
   waitForPacket?: () => Promise<boolean>;
   async start(): Promise<boolean> { this.isRunning = true; return true; }
@@ -108,4 +109,33 @@ test('一覧外の FW: 警告診断は出ず、transport ありなら GAIT_INVAL
       && !/may not support/.test(error.message)
   );
   assert.equal(diagnostics.filter((info) => info.type === 'fw-step-analysis-unconfirmed').length, 0);
+});
+
+test('Step 検出時だけ送る FW: 無通知でも失敗せず liveness-deferred を出す', async () => {
+  const { session, gait, diagnostics } = createSession('20260924');
+  await session.connect();
+  gait.sendsOnlyOnSteps = true;
+  gait.diagnostics = () => ({ transportNotifications: 0, validPackets: 0, invalidPackets: 0 });
+  let waited = 0;
+  gait.waitForPacket = async () => { waited++; return false; };
+
+  await session.applyProfile('realtime-full-step');
+  assert.equal(session.gaitActive, true);
+  assert.equal(waited, 0, '到着待ちをしない');
+  const deferred = diagnostics.filter((info) => info.type === 'liveness-deferred') as Array<{ type: string; reason?: string }>;
+  assert.equal(deferred.length, 1);
+  assert.equal(deferred[0]?.reason, 'step-only-firmware');
+});
+
+test('常時送信の FW: 従来どおり無通知なら GAIT_NO_NOTIFICATIONS', async () => {
+  const { session, gait } = createSession('3.0.0');
+  await session.connect();
+  gait.sendsOnlyOnSteps = false;
+  gait.diagnostics = () => ({ transportNotifications: 0, validPackets: 0, invalidPackets: 0 });
+  gait.waitForPacket = async () => false;
+
+  await assert.rejects(
+    () => session.applyProfile('realtime-full-step'),
+    (error: { code?: string }) => error.code === 'GAIT_NO_NOTIFICATIONS'
+  );
 });

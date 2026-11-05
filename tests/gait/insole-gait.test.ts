@@ -8,6 +8,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { GAIT_CSV_HEADER, GaitAggregator, buildGaitRow, gaitRowToCsv, stepDistance } from '../../src/gait/aggregator.ts';
 import { InsoleGait } from '../../src/gait/analyzer.ts';
+import type { GaitHost } from '../../src/gait/analyzer.ts';
 import { decodeGaitPacket } from '../../src/gait/packet.ts';
 import type { GaitPacket } from '../../src/gait/packet.ts';
 import type { GaitRow, GaitStepLossInfo } from '../../src/gait/aggregator.ts';
@@ -75,6 +76,36 @@ function motionPacket(step: number): DataView {
   ]);
 }
 
+function f16bytes(bits: number): number[] {
+  return u16bytes(bits);
+}
+
+// まとめパケット（header 59, 51byte。INSOLE FW 20260924 以降）
+function stepPacket(step: number, opts: {
+  gaitType?: number; direction?: number; calorieBits?: number;
+  distance?: number; stance?: number; swing?: number;
+  footAngle?: number; x?: number; y?: number; z?: number;
+  landing?: number; px?: number; py?: number; pz?: number;
+} = {}): DataView {
+  const bytes = [
+    59, ...u16bytes(step), opts.gaitType ?? 1, opts.direction ?? 1,
+    ...f16bytes(opts.calorieBits ?? 0x3e00), // 1.5
+    ...f32bytes(opts.distance ?? 12.5),
+    ...f32bytes(opts.stance ?? 0.5),
+    ...f32bytes(opts.swing ?? 0.25),
+    ...f32bytes(opts.footAngle ?? 5.5),
+    ...f32bytes(opts.x ?? 3),
+    ...f32bytes(opts.y ?? 4),
+    ...f32bytes(opts.z ?? 0),
+    ...f32bytes(opts.landing ?? 1.25),
+    ...f32bytes(opts.px ?? -5),
+    ...f32bytes(opts.py ?? -9.4000005),
+    ...f32bytes(opts.pz ?? 2),
+  ];
+  if (bytes.length !== 51) throw new Error(`step packet must be 51 bytes, got ${bytes.length}`);
+  return new DataView(Uint8Array.from(bytes).buffer);
+}
+
 // ── 単体: デコード ───────────────────────────────────────────────────
 test('decodeGaitPacket: overview / stride / pronation / motion をデコードする', () => {
   const overview = decodeGaitPacket(overviewPacket(7));
@@ -128,6 +159,45 @@ test('decodeGaitPacket: ヘッダ不一致・長さ不足・未知サブヘッ�
   const unknownSub = overviewPacket(1);
   new Uint8Array(unknownSub.buffer)[1] = 3;
   assert.equal(decodeGaitPacket(unknownSub), null);
+});
+
+test('decodeGaitPacket: まとめパケット（header 59）の全フィールドをデコードする', () => {
+  const decoded = decodeGaitPacket(stepPacket(300, { direction: 2 }));
+  assert.ok(decoded && decoded.type === 'step');
+  assert.equal(decoded.subheader, null);
+  assert.equal(decoded.step_number, 300);
+  assert.equal(decoded.gait_type, 'walk');
+  assert.equal(decoded.stride_direction, 'backward');
+  assert.equal(decoded.calorie, 1.5);
+  assert.equal(decoded.distance_m, 12.5);
+  assert.equal(decoded.stance_phase_s, 0.5);
+  assert.equal(decoded.swing_phase_s, 0.25);
+  assert.equal(decoded.foot_angle, 5.5);
+  assert.deepEqual([decoded.stride_x, decoded.stride_y, decoded.stride_z], [3, 4, 0]);
+  assert.equal(decoded.landing_force, 1.25);
+  assert.equal(decoded.pronation_x, -5);
+  assert.equal(decoded.pronation_z, 2);
+});
+
+test('decodeGaitPacket: まとめパケットの歩行タイプ other・範囲外、sentinel、長さ不足', () => {
+  const other = decodeGaitPacket(stepPacket(1, { gaitType: 4 }));
+  assert.ok(other && other.type === 'step');
+  assert.equal(other.gait_type, 'other');
+
+  const unknown = decodeGaitPacket(stepPacket(1, { gaitType: 5, direction: 9 }));
+  assert.ok(unknown && unknown.type === 'step');
+  assert.equal(unknown.gait_type, 'unknown');
+  assert.equal(unknown.stride_direction, 'unknown');
+
+  const sentinel = decodeGaitPacket(stepPacket(1, { stance: -1, landing: -1, distance: Number.NaN, footAngle: -12.5 }));
+  assert.ok(sentinel && sentinel.type === 'step');
+  assert.equal(sentinel.stance_phase_s, null);
+  assert.equal(sentinel.landing_force, null);
+  assert.equal(sentinel.distance_m, null);
+  assert.equal(sentinel.foot_angle, -12.5); // 負値が正当
+
+  const short = new DataView(stepPacket(1).buffer.slice(0, 50));
+  assert.equal(decodeGaitPacket(short), null);
 });
 
 // ── 単体: 集約と派生指標 ─────────────────────────────────────────────
@@ -490,4 +560,83 @@ test('reset(): 解析中は何も捨てない', async () => {
   gait.reset();
   assert.equal(gait.isRunning, true);
   assert.equal(gait.diagnostics().subscribed, diagnosticsBefore.subscribed);
+});
+
+test('GaitAggregator: まとめパケットは 1 件で row になり、同じ歩の再送と gap を扱う', () => {
+  const aggregator = new GaitAggregator();
+  const losses: GaitStepLossInfo[] = [];
+  aggregator.onStepLoss = (info) => losses.push(info);
+
+  const row = feed(aggregator, stepPacket(1));
+  assert.ok(row);
+  assert.equal(row.step_number, 1);
+  assert.equal(row.stride_norm_m, 5);
+  assert.equal(row.duration_s, 0.75);
+  assert.equal(row.foot_strike, 'heelStrike');
+  assert.equal(row.pronation_type, 'neutral');
+  assert.deepEqual(row, buildGaitRow(1, {
+    overview: decodeGaitPacket(overviewPacket(1)) as never,
+    stride: decodeGaitPacket(stridePacket(1)) as never,
+    pronation: decodeGaitPacket(pronationPacket(1)) as never,
+  }), '従来フォーマットと同じ row になる');
+
+  assert.equal(feed(aggregator, stepPacket(1)), null, '同じ歩は一度だけ');
+  assert.ok(feed(aggregator, stepPacket(4)));
+  assert.deepEqual(losses, [{ reason: 'gap', steps: [2, 3], count: 2 }]);
+  const stats = aggregator.stats();
+  assert.equal(stats.completedSteps, 2);
+  assert.equal(stats.incompleteSteps, 0);
+  assert.equal(stats.pendingSteps, 0);
+});
+
+test('InsoleGait: まとめパケットで 1 歩ごとに onGait が呼ばれ、subheader は null', async () => {
+  const h = makeHarness();
+  await h.ble.begin();
+  const gait = new InsoleGait(h.ble);
+  const rows: GaitRow[] = [];
+  const raws: GaitPacket[] = [];
+  const subheaders: Array<number | null> = [];
+  gait.onGait = (_id, row) => rows.push(row);
+  gait.onRaw = (_id, raw) => raws.push(raw);
+  gait.onTransport = (_id, info) => subheaders.push(info.subheader);
+  await gait.start();
+
+  h.stepCharacteristic.emit(stepPacket(1));
+  h.stepCharacteristic.emit(stepPacket(2, { gaitType: 2 }));
+
+  assert.equal(rows.length, 2);
+  assert.equal(rows[1]!.gait_type, 'run');
+  assert.deepEqual(raws.map((raw) => raw.type), ['step', 'step']);
+  assert.deepEqual(subheaders, [null, null]);
+  const diagnostics = gait.diagnostics();
+  assert.equal(diagnostics.validPackets, 2);
+  assert.equal(diagnostics.invalidPackets, 0);
+  assert.equal(diagnostics.stepLoss.completedSteps, 2);
+  await gait.stop();
+});
+
+function fakeHost(firmware: { releaseDate: number } | null, kind?: string): GaitHost {
+  return {
+    id: 0,
+    transport: {
+      startNotify: async () => undefined,
+      stopNotify: async () => undefined,
+      addAfterReconnectSuccessHook: () => () => {},
+      addDisconnectHook: () => () => {},
+    },
+    isConnected: () => true,
+    setNotifySink: () => () => {},
+    reportError: () => {},
+    firmware,
+    ...(kind ? { profile: { kind } } : {}),
+  };
+}
+
+test('InsoleGait.sendsOnlyOnSteps: INSOLE FW 20260924 以降だけ true', () => {
+  assert.equal(new InsoleGait(fakeHost({ releaseDate: 20260923 }, 'insole')).sendsOnlyOnSteps, false);
+  assert.equal(new InsoleGait(fakeHost({ releaseDate: 20260924 }, 'insole')).sendsOnlyOnSteps, true);
+  assert.equal(new InsoleGait(fakeHost({ releaseDate: 20261012 })).sendsOnlyOnSteps, true);
+  assert.equal(new InsoleGait(fakeHost(null, 'insole')).sendsOnlyOnSteps, false, 'FW 不明は旧FW扱い');
+  assert.equal(new InsoleGait(fakeHost({ releaseDate: 20261012 }, 'core')).sendsOnlyOnSteps, false, 'CORE は対象外');
+  assert.equal(new InsoleGait(fakeHost({ releaseDate: 20260924 }, 'insole')).diagnostics().sendsOnlyOnSteps, true);
 });
