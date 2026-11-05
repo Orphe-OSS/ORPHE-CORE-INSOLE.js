@@ -5,6 +5,7 @@
  * - ストライド平均: 接地の検出、定常ストライドの選択、0〜100% への正規化
  * - trials.json の ZIP 情報の書き換えが書式を崩さないこと
  * - trials.json とページ（サンプルデータ・ランディング）の ZIP リンク・サイズ・試技名が一致すること
+ * - ビューアが古いブラウザに無い API を呼ばないこと
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -266,4 +267,15 @@ test('README.dataset.md に左右と動画の時刻合わせの式がある', ()
 
   // Assert
   for (const formula of formulas) assert.ok(readme.includes(formula), formula);
+});
+
+test('ビューアは古いブラウザに無い AbortSignal.any・AbortSignal.timeout を呼ばない', () => {
+  // Arrange: Safari 17.3 以前などでは未定義で、呼ぶとデータ取得の前に例外になる
+  const source = read('sample-data/viewer.js');
+
+  // Act
+  const calls = source.match(/AbortSignal\.(any|timeout)\s*\(/g) ?? [];
+
+  // Assert
+  assert.deepEqual(calls, []);
 });

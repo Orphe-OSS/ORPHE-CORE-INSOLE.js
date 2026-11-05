@@ -719,6 +719,28 @@
     }
   }
 
+  /**
+   * JSON を取得する。controller が中断されるか、本文の読み込みまでで FETCH_TIMEOUT_MS を過ぎたら止める。
+   * AbortSignal.any・AbortSignal.timeout は古いブラウザ（Safari 17.3 以前など）に無いため、タイマーで中断する
+   */
+  async function fetchJson(url, controller = new AbortController()) {
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, FETCH_TIMEOUT_MS);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      if (!response.ok) throw new Error(`HTTP ${response.status} for ${response.url}`);
+      return await response.json();
+    } catch (error) {
+      if (timedOut) throw new Error(`timed out after ${FETCH_TIMEOUT_MS} ms: ${url}`, { cause: error });
+      throw error;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   async function selectTrial(id) {
     const trial = trialById(id);
     if (!trial || (current && current.id === id && data)) return;
@@ -735,11 +757,8 @@
 
     if (loadController) loadController.abort();
     loadController = new AbortController();
-    const signal = AbortSignal.any([loadController.signal, AbortSignal.timeout(FETCH_TIMEOUT_MS)]);
     try {
-      const response = await fetch(new URL(`files/${id}/data.json`, BASE_URL), { signal });
-      if (!response.ok) throw new Error(`HTTP ${response.status} for ${response.url}`);
-      const loaded = await response.json();
+      const loaded = await fetchJson(new URL(`files/${id}/data.json`, BASE_URL), loadController);
       if (current.id !== id) return;
       data = loaded;
     } catch (error) {
@@ -957,9 +976,7 @@
     S = strings;
     bindElements();
     try {
-      const response = await fetch(new URL('trials.json', BASE_URL), { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
-      if (!response.ok) throw new Error(`HTTP ${response.status} for ${response.url}`);
-      manifest = await response.json();
+      manifest = await fetchJson(new URL('trials.json', BASE_URL));
     } catch (error) {
       console.error('[sample-data] failed to load trials.json', error);
       el.status.textContent = S.viewerLoadError;
