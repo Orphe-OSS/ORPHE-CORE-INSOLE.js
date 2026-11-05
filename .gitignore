@@ -9,3 +9,7 @@ api_doc/
 
 # GitHub Pages 用に組み立てる公開ディレクトリ（.github/workflows/pages.yml が生成）
 _site/
+
+# サンプルデータ（GitHub Releases で配布）。scripts/sample-data.mjs の作業領域と、Pages 用に生成するファイル
+.sample-data/
+sample-data/files/

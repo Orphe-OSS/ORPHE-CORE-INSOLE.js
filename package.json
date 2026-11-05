@@ -22,7 +22,10 @@
     "example": "vite",
     "docs": "typedoc",
     "build:site": "node scripts/build-landing.mjs",
-    "check:site": "node scripts/build-landing.mjs --check"
+    "check:site": "node scripts/build-landing.mjs --check",
+    "sample-data:pack": "node scripts/sample-data.mjs pack",
+    "sample-data:site": "node scripts/sample-data.mjs site",
+    "sample-data:fetch": "node scripts/sample-data.mjs fetch"
   },
   "author": "Tetsuaki BABA and ORPHE Inc.",
   "license": "SEE LICENSE IN LICENSE.md",

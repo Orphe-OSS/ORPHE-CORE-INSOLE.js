@@ -2,6 +2,8 @@
 #
 # 公開するもの:
 #   index.html / en/index.html   ランディングページ（index.html が正本。en/ は scripts/build-landing.mjs の生成物）
+#   sample-data/ / en/sample-data/  サンプルデータのページ（同上）。動画・ポスター・波形 JSON（sample-data/files/）は
+#                                git に入れず、ここで GitHub Releases の ZIP から生成する（scripts/sample-data.mjs fetch）
 #   assets/                      画像・動画・フォント
 #   api_doc/                     TypeDoc の出力（.gitignore 対象なので、ここで生成する）
 #   README.md / LICENSE.md       ページ内からリンクしている
@@ -17,10 +19,12 @@ on:
       - index.html
       - en/**
       - assets/**
+      - sample-data/**
       - README.md
       - LICENSE.md
       - robots.txt
       - scripts/build-landing.mjs
+      - scripts/sample-data.mjs
       - src/**
       - typedoc.json
       - package.json
@@ -55,6 +59,12 @@ jobs:
       # en/index.html が index.html から生成した結果と一致することを確認する
       - run: npm run check:site
 
+      # サンプルデータの ZIP を Release から取得し、trials.json の SHA-256 と照合してから sample-data/files/ を生成する
+      - name: サンプルデータを Release から取得する
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/sample-data.mjs fetch
+
       # TypeDoc で api_doc/ を生成し、全 HTML に noindex を付与する
       - run: npm run docs
       - name: api_doc に noindex を付与する
@@ -80,10 +90,12 @@ jobs:
       - name: _site を組み立てる
         run: |
           rm -rf _site
-          mkdir -p _site/en
+          mkdir -p _site/en/sample-data
           cp index.html README.md LICENSE.md robots.txt _site/
           cp en/index.html _site/en/
+          cp en/sample-data/index.html _site/en/sample-data/
           cp -R assets _site/assets
+          cp -R sample-data _site/sample-data
           cp -R api_doc _site/api_doc
           # Jekyll を通さない（_ で始まるパスや api_doc/assets をそのまま配信する）
           touch _site/.nojekyll
