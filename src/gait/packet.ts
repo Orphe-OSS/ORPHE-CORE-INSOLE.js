@@ -1,9 +1,15 @@
 /**
  * STEP_ANALYSIS パケットの型とデコード（INSOLE）。
  *
- * パケット（20byte, big-endian）: byte[0]=51, byte[1]=サブヘッダー
+ * 従来フォーマット（20byte, big-endian）: byte[0]=51, byte[1]=サブヘッダー
  * （0=概要 / 1=ストライド / 2=プロネーション / 4=motion）, byte[2..3]=step_number。
- * 状態を持たない純関数のみ。
+ * 1歩ぶんを 3 種のサブパケットに分け、各 2 回ずつ送る。motion は常時送信。
+ *
+ * まとめフォーマット（51byte, big-endian。INSOLE FW 20260924 以降）: byte[0]=59,
+ * byte[1..2]=step_number, byte[3]=歩行タイプ, byte[4]=ストライド方向, 以降に
+ * 概要・ストライド・プロネーションを連結する。Step 検出時に 1 回だけ送られ、motion は無い。
+ *
+ * どちらのフォーマットかは先頭バイトで判別する。状態を持たない純関数のみ。
  */
 import { getFloat16 } from '../protocol/float16.ts';
 
@@ -12,9 +18,13 @@ import { getFloat16 } from '../protocol/float16.ts';
 export const GAIT_PACKET_HEADER = 51;
 /** STEP_ANALYSIS パケットの長さ [byte] */
 export const GAIT_PACKET_LENGTH = 20;
+/** 1歩ぶんをまとめた STEP_ANALYSIS パケットのヘッダーバイト（INSOLE FW 20260924 以降） */
+export const GAIT_MERGED_PACKET_HEADER = 59;
+/** 1歩ぶんをまとめた STEP_ANALYSIS パケットの長さ [byte] */
+export const GAIT_MERGED_PACKET_LENGTH = 51;
 
-/** 歩行タイプの分類値 → 名称 */
-export const GAIT_TYPES = Object.freeze(['none', 'walk', 'run', 'stance']);
+/** 歩行タイプの分類値 → 名称（`other` はまとめフォーマットでのみ届く） */
+export const GAIT_TYPES = Object.freeze(['none', 'walk', 'run', 'stance', 'other']);
 /** ストライド方向の分類値 → 名称 */
 export const STRIDE_DIRECTIONS = Object.freeze(['none', 'forward', 'backward', 'inside', 'outside']);
 
@@ -155,8 +165,22 @@ export interface GaitMotionPacket extends GaitPacketBase {
   delta_z: number | null;
 }
 
-/** サブヘッダーで判別する STEP_ANALYSIS パケットの union。 */
-export type GaitPacket = GaitOverviewPacket | GaitStridePacket | GaitPronationPacket | GaitMotionPacket;
+/**
+ * 1歩ぶんの概要・ストライド・プロネーションをまとめたパケット（header 59、INSOLE FW 20260924 以降）。
+ * サブヘッダーを持たないため `subheader` は null。
+ */
+export interface GaitStepPacket
+  extends Omit<GaitOverviewPacket, 'type' | 'subheader'>,
+    Omit<GaitStridePacket, 'type' | 'subheader' | 'step_number'>,
+    Omit<GaitPronationPacket, 'type' | 'subheader' | 'step_number'> {
+  /** 判別用タグ */
+  type: 'step';
+  /** まとめフォーマットにはサブヘッダーが無い */
+  subheader: null;
+}
+
+/** ヘッダー・サブヘッダーで判別する STEP_ANALYSIS パケットの union。 */
+export type GaitPacket = GaitOverviewPacket | GaitStridePacket | GaitPronationPacket | GaitMotionPacket | GaitStepPacket;
 
 // ── デコード ─────────────────────────────────────────────────────────
 function decodeOverview(dv: DataView, step: number): GaitOverviewPacket {
@@ -217,11 +241,37 @@ function decodeMotion(dv: DataView, step: number): GaitMotionPacket {
   };
 }
 
+function decodeStep(dv: DataView): GaitStepPacket {
+  return {
+    type: 'step',
+    subheader: null,
+    step_number: dv.getUint16(1, false),
+    gait_type: gaitTypeToStr(dv.getUint8(3)),
+    stride_direction: strideDirectionToStr(dv.getUint8(4)),
+    calorie: sanitizeNonNeg(getFloat16(dv, 5)),
+    distance_m: sanitizeNonNeg(dv.getFloat32(7, false)),
+    stance_phase_s: sanitizeNonNeg(dv.getFloat32(11, false)),
+    swing_phase_s: sanitizeNonNeg(dv.getFloat32(15, false)),
+    foot_angle: sanitize(dv.getFloat32(19, false)),
+    stride_x: sanitize(dv.getFloat32(23, false)),
+    stride_y: sanitize(dv.getFloat32(27, false)),
+    stride_z: sanitize(dv.getFloat32(31, false)),
+    landing_force: sanitizeNonNeg(dv.getFloat32(35, false)),
+    pronation_x: sanitize(dv.getFloat32(39, false)),
+    pronation_y: sanitize(dv.getFloat32(43, false)),
+    pronation_z: sanitize(dv.getFloat32(47, false)),
+  };
+}
+
 /**
- * 歩容解析パケット（20byte）を1件デコードする。
+ * 歩容解析パケットを1件デコードする。先頭バイトが 59 ならまとめフォーマット（51byte）、
+ * 51 なら従来フォーマット（20byte）として読む。
  * 解析パケットでない場合（ヘッダー不一致・長さ不足・未知サブヘッダー）は null。
  */
 export function decodeGaitPacket(dv: DataView): GaitPacket | null {
+  if (dv.byteLength > 0 && dv.getUint8(0) === GAIT_MERGED_PACKET_HEADER) {
+    return dv.byteLength < GAIT_MERGED_PACKET_LENGTH ? null : decodeStep(dv);
+  }
   if (dv.byteLength < GAIT_PACKET_LENGTH) return null;
   if (dv.getUint8(0) !== GAIT_PACKET_HEADER) return null;
   const subheader = dv.getUint8(1);

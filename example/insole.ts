@@ -198,7 +198,10 @@ async function applyMode(): Promise<void> {
       lastGaitRow = null;
       if (await gait.start()) {
         log('歩容解析を開始しました（歩くと1歩ごとに集約されます）');
-        if (!(await gait.waitForPacket({ timeoutMs: 1500 }))) {
+        if (gait.sendsOnlyOnSteps) {
+          // FW 20260924 以降は Step 検出時だけ送られるため、静止中の無通知は正常
+          log('歩行待ち…');
+        } else if (!(await gait.waitForPacket({ timeoutMs: 1500 }))) {
           log('STEP_ANALYSIS の通知が届いていません（FW 未対応の可能性）', true);
         }
       } else {
