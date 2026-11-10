@@ -15,7 +15,7 @@ import {
   buildRequestsFromSerials,
   serialDistance,
 } from './protocol.ts';
-import type { FifoRequestRange } from './protocol.ts';
+import type { FifoLayout, FifoRequestRange } from './protocol.ts';
 
 
 // ── 通知キュー（promise ベース） ─────────────────────────────────────
@@ -93,6 +93,21 @@ export class FifoLoopState {
   firstStoredSerial: number | null = null;
   /** firstStoredSerial からの最大距離（収録スパン-1） */
   storedSpanMax = 0;
+  /**
+   * lag がこれを超えたぶんを回復不能として扱う上限 packet 数。最初のデータパケットの形式で確定する
+   * （INSOLE 8 フレーム形式は 750）。それまでは 104 byte 形式の値で判定するが、収録開始時は FW バッファを
+   * 消去してから始めるので、形式が決まる前に lag が上限へ届くことはない。
+   */
+  ringCapacity = FIFO_RING_BUFFER_CAPACITY;
+  /** 1 パケットのサンプル数（INSOLE 4 | 8、CORE 8。未受信なら null） */
+  framesPerPacket: number | null = null;
+
+  /** 受信したデータパケットの形式を記録する（ringCapacity / framesPerPacket を形式に合わせる）。 */
+  notePacketLayout(layout: FifoLayout): void {
+    if (this.framesPerPacket === layout.samples && this.ringCapacity === layout.ringCapacity) return;
+    this.framesPerPacket = layout.samples;
+    this.ringCapacity = layout.ringCapacity;
+  }
 
   /**
    * rawStore へ格納したシリアルの収録スパンを記録する。firstStoredSerial は
@@ -166,10 +181,10 @@ export class FifoLoopState {
     }
 
     let need = serialDistance(this.lastSerial, currentSerial);
-    if (need > FIFO_RING_BUFFER_CAPACITY) {
+    if (need > this.ringCapacity) {
       // 追従が間に合わず FW リングバッファが上書きされた分は回復不能。
       // 「気づかない欠損」になりやすいので必ず記録・通知する。
-      const skip = need - FIFO_RING_BUFFER_CAPACITY;
+      const skip = need - this.ringCapacity;
       this.lastSerial = (this.lastSerial + skip) % UINT16_MAX;
       this.carryOver = [];
       this.dropped += skip;
