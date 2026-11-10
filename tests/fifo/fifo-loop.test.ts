@@ -344,79 +344,6 @@ test('FIFO: 正常系 — 収集・onSamples・stop でモード復帰と CSV', 
   release();
 });
 
-test('FIFO: INSOLE 8 フレーム形式（0x3A・200 byte）を回収でき、1 パケット 8 サンプルになる', async () => {
-  const h = await makeHarness();
-  h.fw.eightFrame = true;
-  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
-  const samples: { serial_number: number; packet_number: number }[] = [];
-  const progress: { framesPerPacket: number | null; ringCapacity: number }[] = [];
-  fifo.onSamples = (_id, batch) => samples.push(...batch);
-  fifo.onProgress = (info) => progress.push({ framesPerPacket: info.framesPerPacket, ringCapacity: info.ringCapacity });
-
-  assert.equal(await fifo.start(), true);
-  assert.equal(fifo.framesPerPacket, null); // データが届くまで形式は未確定
-  assert.equal(fifo.ringCapacity, 1500);
-
-  h.fw.advance(10);
-  await waitUntil(() => fifo.collectedCount >= 10, 'collect 10 (8 frame)');
-  h.fw.dropOnce.add(13); // BLE ロスも再要求で回復する
-  h.fw.advance(5);
-  await waitUntil(() => fifo.collectedCount >= 15, 'collect 15 (8 frame)');
-
-  const store = await fifo.stop();
-  assert.equal(store.size, 15);
-  assert.equal(fifo.droppedCount, 0);
-  assert.equal(fifo.framesPerPacket, 8);
-  assert.equal(fifo.ringCapacity, 750);
-  assert.deepEqual(progress.at(-1), { framesPerPacket: 8, ringCapacity: 750 });
-  assert.deepEqual(h.errors, []);
-
-  // 1 パケット = 8 サンプル（packet_number 0..7）
-  assert.equal(samples.length, 15 * 8);
-  for (const [serial, dv] of store) {
-    assert.deepEqual(new Uint8Array(dv.buffer), makeFifoPacketBytes8(serial));
-    assert.deepEqual(samples.filter((s) => s.serial_number === serial).map((s) => s.packet_number), [0, 1, 2, 3, 4, 5, 6, 7]);
-  }
-
-  // CSV は 15 パケット × 8 行
-  const lines = fifo.toCSV().trimEnd().split('\n');
-  assert.equal(lines[0], FIFO_CSV_HEADER);
-  assert.equal(lines.length, 1 + 15 * 8);
-
-  // 診断: 届いた通知の内訳（データは 3a:200、ステータスも 200 byte）
-  assert.equal(fifo.notifyStats['3a:200'], 15); // 落ちた 1 件は届いておらず、再要求ぶんと合わせて 15 件
-  assert.ok((fifo.notifyStats['35:200'] ?? 0) > 0);
-  assert.equal(h.fw.readMode, 4);
-});
-
-test('FIFO: 長さが合わない未対応のデータパケットは黙って捨てず、収録ごとに 1 回 onError で知らせる', async () => {
-  const h = await makeHarness();
-  h.fw.eightFrame = true;
-  h.fw.truncateDataTo = 152; // ヘッダは 0x3A だが 200 byte ではない
-  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
-  const errors: unknown[] = [];
-  fifo.onError = (error) => errors.push(error);
-
-  await fifo.start();
-  h.fw.advance(6);
-  await waitUntil(() => errors.length > 0, 'unsupported packet reported');
-  h.fw.advance(6);
-  await new Promise((resolve) => setTimeout(resolve, 50));
-  await fifo.stop();
-
-  assert.equal(fifo.collectedCount, 0);
-  assert.equal(errors.length, 1);
-  assert.match(String((errors[0] as Error).message), /unsupported FIFO data packet \(header 0x3a, 152 bytes\)/);
-  assert.ok((fifo.notifyStats['3a:152'] ?? 0) > 0);
-
-  // 次の収録では改めて 1 回知らせる
-  await fifo.start();
-  h.fw.advance(3);
-  await waitUntil(() => errors.length > 1, 'reported again on next capture');
-  await fifo.stop();
-  assert.equal(errors.length, 2);
-});
-
 test('FIFO: デコード結果が decodeFifoPacket と一致し serial 順で揃う', async () => {
   const h = await makeHarness();
   const fifo = new FifoRecorder(h.ble, FAST_TIMING);
@@ -677,4 +604,79 @@ test('FIFO: restoreMode 0 は 0x00 を書き、null は復帰 write を送らな
   await waitUntil(() => fifo2.collectedCount >= 2, 'collect 2 (restore none)');
   await fifo2.stop();
   assert.equal(h2.fw.readMode, 0x02); // FIFO モードのまま
+});
+
+// ── INSOLE 8 フレーム形式（FW 20260924.1 以降） ─────────────────────
+
+test('FIFO: INSOLE 8 フレーム形式（0x3A・200 byte）を回収でき、1 パケット 8 サンプルになる', async () => {
+  const h = await makeHarness();
+  h.fw.eightFrame = true;
+  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
+  const samples: { serial_number: number; packet_number: number }[] = [];
+  const progress: { framesPerPacket: number | null; ringCapacity: number }[] = [];
+  fifo.onSamples = (_id, batch) => samples.push(...batch);
+  fifo.onProgress = (info) => progress.push({ framesPerPacket: info.framesPerPacket, ringCapacity: info.ringCapacity });
+
+  assert.equal(await fifo.start(), true);
+  assert.equal(fifo.framesPerPacket, null); // データが届くまで形式は未確定
+  assert.equal(fifo.ringCapacity, 1500);
+
+  h.fw.advance(10);
+  await waitUntil(() => fifo.collectedCount >= 10, 'collect 10 (8 frame)');
+  h.fw.dropOnce.add(13); // BLE ロスも再要求で回復する
+  h.fw.advance(5);
+  await waitUntil(() => fifo.collectedCount >= 15, 'collect 15 (8 frame)');
+
+  const store = await fifo.stop();
+  assert.equal(store.size, 15);
+  assert.equal(fifo.droppedCount, 0);
+  assert.equal(fifo.framesPerPacket, 8);
+  assert.equal(fifo.ringCapacity, 750);
+  assert.deepEqual(progress.at(-1), { framesPerPacket: 8, ringCapacity: 750 });
+  assert.deepEqual(h.errors, []);
+
+  // 1 パケット = 8 サンプル（packet_number 0..7）
+  assert.equal(samples.length, 15 * 8);
+  for (const [serial, dv] of store) {
+    assert.deepEqual(new Uint8Array(dv.buffer), makeFifoPacketBytes8(serial));
+    assert.deepEqual(samples.filter((s) => s.serial_number === serial).map((s) => s.packet_number), [0, 1, 2, 3, 4, 5, 6, 7]);
+  }
+
+  // CSV は 15 パケット × 8 行
+  const lines = fifo.toCSV().trimEnd().split('\n');
+  assert.equal(lines[0], FIFO_CSV_HEADER);
+  assert.equal(lines.length, 1 + 15 * 8);
+
+  // 診断: 届いた通知の内訳（データは 3a:200、ステータスも 200 byte）
+  assert.equal(fifo.notifyStats['3a:200'], 15); // 落ちた 1 件は届いておらず、再要求ぶんと合わせて 15 件
+  assert.ok((fifo.notifyStats['35:200'] ?? 0) > 0);
+  assert.equal(h.fw.readMode, 4);
+});
+
+test('FIFO: 長さが合わない未対応のデータパケットは黙って捨てず、収録ごとに 1 回 onError で知らせる', async () => {
+  const h = await makeHarness();
+  h.fw.eightFrame = true;
+  h.fw.truncateDataTo = 152; // ヘッダは 0x3A だが 200 byte ではない
+  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
+  const errors: unknown[] = [];
+  fifo.onError = (error) => errors.push(error);
+
+  await fifo.start();
+  h.fw.advance(6);
+  await waitUntil(() => errors.length > 0, 'unsupported packet reported');
+  h.fw.advance(6);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await fifo.stop();
+
+  assert.equal(fifo.collectedCount, 0);
+  assert.equal(errors.length, 1);
+  assert.match(String((errors[0] as Error).message), /unsupported FIFO data packet \(header 0x3a, 152 bytes\)/);
+  assert.ok((fifo.notifyStats['3a:152'] ?? 0) > 0);
+
+  // 次の収録では改めて 1 回知らせる
+  await fifo.start();
+  h.fw.advance(3);
+  await waitUntil(() => errors.length > 1, 'reported again on next capture');
+  await fifo.stop();
+  assert.equal(errors.length, 2);
 });
