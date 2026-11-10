@@ -946,7 +946,7 @@
             <div class="tile both">
               <span class="tag">FifoRecorder</span>
               <h3 data-i18n="commonDataRecordTitle">収録ヘルパー</h3>
-              <p data-i18n="commonDataRecordBody">FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260905以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。</p>
+              <p data-i18n="commonDataRecordBody">FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260125以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。</p>
             </div>
           </div>
         </div>
@@ -1556,7 +1556,7 @@ document.getElementById("connect").onclick = () =&gt;
         commonDataLifecycleTitle: "Lifecycle events",
         commonDataLifecycleBody: "Connect, disconnect, errors, and reconnect progress. Subscribe as many times as you like; each call returns an unsubscribe function.",
         commonDataRecordTitle: "Recording helpers",
-        commonDataRecordBody: "FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260905 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.",
+        commonDataRecordBody: "FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260125 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.",
         insoleDataGaitTitle: "INSOLE gait analysis",
         insoleDataGaitBody: "InsoleGait records per-step gait rows from INSOLE and exports CSV.",
         insoleDataSimTitle: "Simulator",
@@ -1800,7 +1800,7 @@ document.getElementById("connect").onclick = () =&gt;
         commonDataLifecycleTitle: "ライフサイクルイベント",
         commonDataLifecycleBody: "接続、切断、エラー、再接続の進行。何個でも購読でき、各呼び出しは解除関数を返します。",
         commonDataRecordTitle: "収録ヘルパー",
-        commonDataRecordBody: "FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260905以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。",
+        commonDataRecordBody: "FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260125以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。",
         insoleDataGaitTitle: "INSOLEの歩容解析",
         insoleDataGaitBody: "InsoleGaitでINSOLEの1歩ごとの歩容行を記録し、CSVを出力できます。",
         insoleDataSimTitle: "シミュレータ",

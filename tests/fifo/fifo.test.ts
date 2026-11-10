@@ -323,6 +323,52 @@ test('calcRequestRange: 未同期なら直近 accumulated 件、同期後は las
   assert.equal(state.dropped, 0);
 });
 
+test('calcRequestRange: 蓄積数を返さない FW（常に 0）でも、シリアルが進んでいれば現在のシリアルから始める', () => {
+  const state = new FifoLoopState();
+  // 1 回目: 蓄積数 0。まだ「溜まっていないだけ」と区別できないので要求しない
+  assert.deepEqual(state.calcRequestRange(54, 0, 200), [0, 0]);
+  assert.equal(state.noAccumulatedCount, false);
+  // 2 回目: 蓄積数は 0 のままシリアルだけ進んだ → 蓄積数を返さない FW。現在の 1 件から始める
+  assert.deepEqual(state.calcRequestRange(60, 0, 200), [60, 1]);
+  assert.equal(state.noAccumulatedCount, true);
+  assert.equal(state.updateAfterResponse(new Set(), new Set(), 60, 1), 'ok');
+  assert.equal(state.lastSerial, 60);
+  // 同期後は通常どおり lastSerial の次から
+  assert.deepEqual(state.calcRequestRange(70, 0, 200), [61, 10]);
+  assert.equal(state.dropped, 0);
+});
+
+test('calcRequestRange: 蓄積数を返す FW の「まだ溜まっていない」（シリアルが進まない）では要求しない', () => {
+  const state = new FifoLoopState();
+  assert.deepEqual(state.calcRequestRange(0, 0, 200), [0, 0]);
+  assert.deepEqual(state.calcRequestRange(0, 0, 200), [0, 0]);
+  assert.equal(state.noAccumulatedCount, false);
+  // 蓄積数を一度でも見たら、以後の 0 は「溜まっていない」として扱う
+  assert.deepEqual(state.calcRequestRange(5, 5, 200), [1, 5]);
+  const next = new FifoLoopState();
+  assert.deepEqual(next.calcRequestRange(5, 5, 200), [1, 5]);
+  next.lastSerial = null;
+  assert.deepEqual(next.calcRequestRange(9, 0, 200), [0, 0]);
+  assert.equal(next.noAccumulatedCount, false);
+});
+
+test('calcRequestRange: 蓄積数を返さない FW の再同期は、最後に要求済みのシリアルからの距離を欠損として数える', () => {
+  const state = new FifoLoopState();
+  state.calcRequestRange(10, 0, 200);
+  assert.deepEqual(state.calcRequestRange(12, 0, 200), [12, 1]);
+  state.updateAfterResponse(new Set(), new Set(), 12, 1);
+  assert.deepEqual(state.calcRequestRange(20, 0, 200), [13, 8]);
+  state.updateAfterResponse(new Set(), new Set(), 13, 8);   // lastSerial = 20
+  // 新規レンジに no-data → 再同期
+  state.calcRequestRange(30, 0, 200);
+  state.updateAfterResponse(new Set(), new Set([21]), 21, 10);
+  assert.equal(state.lastSerial, null);
+  assert.deepEqual(state.calcRequestRange(65530, 0, 200), [65530, 1]);
+  // 30 まで要求済みで、65530 から再開 → 31..65529 の 65499 件が失われた
+  assert.equal(state.dropped, 65499);
+  assert.deepEqual(state.lossEvents, [{ reason: 'resync_backlog', dropped: 65499 }]);
+});
+
 test('calcRequestRange: リングバッファ容量を超えて遅れた分は ring_overflow として計上する', () => {
   const state = new FifoLoopState();
   state.lastSerial = 0;
