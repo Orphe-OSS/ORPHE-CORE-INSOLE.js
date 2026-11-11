@@ -115,6 +115,16 @@ function makeFifoPacketBytes(serial: number): Uint8Array {
   return bytes;
 }
 
+/** 決定的な 200byte FIFO データパケット（INSOLE FW 20260924.1 以降の 8 フレーム形式。ヘッダ 0x3A） */
+function makeFifoPacketBytes8(serial: number): Uint8Array {
+  const random = mulberry32(0x8f8f ^ serial);
+  const bytes = new Uint8Array(200);
+  bytes.set(makeFifoPacketBytes(serial).subarray(0, 8));
+  bytes[0] = 0x3a;
+  for (let i = 8; i < 200; i++) bytes[i] = Math.floor(random() * 256);
+  return bytes;
+}
+
 /**
  * FW リングバッファのふるまいを模倣する fake FW。
  * DEVICE_INFORMATION への write を解釈し、SENSOR_VALUES へ notify を返す。
@@ -138,6 +148,13 @@ class FakeInsoleFw {
   dropAlways = new Set<number>();
   /** モニタ停止コマンドをこの回数だけ落とす（未処理・ACK なし） */
   failStopMonitor = 0;
+  /**
+   * 8 フレーム形式の FW（20260924.1 以降）を模倣する。データは 0x3A・200 byte、
+   * ステータス応答（0x35）も 200 byte に 0 埋めされて届く（実機で確認した挙動）。
+   */
+  eightFrame = false;
+  /** データパケットをこの長さに切り詰めて返す（未対応形式の模倣。null なら切り詰めない） */
+  truncateDataTo: number | null = null;
 
   constructor(info: MockCharacteristic, sensor: MockCharacteristic) {
     this.sensor = sensor;
@@ -149,14 +166,19 @@ class FakeInsoleFw {
     for (let i = 0; i < n; i++) {
       this.currentSerial = (this.currentSerial + 1) % 65536;
       if (this.monitorRunning) {
-        this.store.set(this.currentSerial, makeFifoPacketBytes(this.currentSerial));
+        this.store.set(this.currentSerial, this.eightFrame ? makeFifoPacketBytes8(this.currentSerial) : makeFifoPacketBytes(this.currentSerial));
         this.accumulated = Math.min(this.accumulated + 1, 1500);
       }
     }
   }
 
   private emit(bytes: number[] | Uint8Array): void {
-    const array = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
+    let array = bytes instanceof Uint8Array ? bytes : Uint8Array.from(bytes);
+    if (this.eightFrame && array.length < 200) {
+      const padded = new Uint8Array(200);
+      padded.set(array);
+      array = padded;
+    }
     this.sensor.emit(new DataView(array.buffer.slice(0)));
   }
 
@@ -208,6 +230,10 @@ class FakeInsoleFw {
           }
           if (this.dropOnce.delete(serial)) continue; // BLE ロス: 応答が空中で消えた
           if (this.dropAlways.has(serial)) continue;
+          if (this.truncateDataTo !== null) {
+            this.sensor.emit(new DataView(packet.slice(0, this.truncateDataTo).buffer));
+            continue;
+          }
           this.emit(packet);
         }
       }
@@ -605,4 +631,79 @@ test('FIFO: restoreMode 0 は 0x00 を書き、null は復帰 write を送らな
   await waitUntil(() => fifo2.collectedCount >= 2, 'collect 2 (restore none)');
   await fifo2.stop();
   assert.equal(h2.fw.readMode, 0x02); // FIFO モードのまま
+});
+
+// ── INSOLE 8 フレーム形式（FW 20260924.1 以降） ─────────────────────
+
+test('FIFO: INSOLE 8 フレーム形式（0x3A・200 byte）を回収でき、1 パケット 8 サンプルになる', async () => {
+  const h = await makeHarness();
+  h.fw.eightFrame = true;
+  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
+  const samples: { serial_number: number; packet_number: number }[] = [];
+  const progress: { framesPerPacket: number | null; ringCapacity: number }[] = [];
+  fifo.onSamples = (_id, batch) => samples.push(...batch);
+  fifo.onProgress = (info) => progress.push({ framesPerPacket: info.framesPerPacket, ringCapacity: info.ringCapacity });
+
+  assert.equal(await fifo.start(), true);
+  assert.equal(fifo.framesPerPacket, null); // データが届くまで形式は未確定
+  assert.equal(fifo.ringCapacity, 1500);
+
+  h.fw.advance(10);
+  await waitUntil(() => fifo.collectedCount >= 10, 'collect 10 (8 frame)');
+  h.fw.dropOnce.add(13); // BLE ロスも再要求で回復する
+  h.fw.advance(5);
+  await waitUntil(() => fifo.collectedCount >= 15, 'collect 15 (8 frame)');
+
+  const store = await fifo.stop();
+  assert.equal(store.size, 15);
+  assert.equal(fifo.droppedCount, 0);
+  assert.equal(fifo.framesPerPacket, 8);
+  assert.equal(fifo.ringCapacity, 750);
+  assert.deepEqual(progress.at(-1), { framesPerPacket: 8, ringCapacity: 750 });
+  assert.deepEqual(h.errors, []);
+
+  // 1 パケット = 8 サンプル（packet_number 0..7）
+  assert.equal(samples.length, 15 * 8);
+  for (const [serial, dv] of store) {
+    assert.deepEqual(new Uint8Array(dv.buffer), makeFifoPacketBytes8(serial));
+    assert.deepEqual(samples.filter((s) => s.serial_number === serial).map((s) => s.packet_number), [0, 1, 2, 3, 4, 5, 6, 7]);
+  }
+
+  // CSV は 15 パケット × 8 行
+  const lines = fifo.toCSV().trimEnd().split('\n');
+  assert.equal(lines[0], FIFO_CSV_HEADER);
+  assert.equal(lines.length, 1 + 15 * 8);
+
+  // 診断: 届いた通知の内訳（データは 3a:200、ステータスも 200 byte）
+  assert.equal(fifo.notifyStats['3a:200'], 15); // 落ちた 1 件は届いておらず、再要求ぶんと合わせて 15 件
+  assert.ok((fifo.notifyStats['35:200'] ?? 0) > 0);
+  assert.equal(h.fw.readMode, 4);
+});
+
+test('FIFO: 長さが合わない未対応のデータパケットは黙って捨てず、収録ごとに 1 回 onError で知らせる', async () => {
+  const h = await makeHarness();
+  h.fw.eightFrame = true;
+  h.fw.truncateDataTo = 152; // ヘッダは 0x3A だが 200 byte ではない
+  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
+  const errors: unknown[] = [];
+  fifo.onError = (error) => errors.push(error);
+
+  await fifo.start();
+  h.fw.advance(6);
+  await waitUntil(() => errors.length > 0, 'unsupported packet reported');
+  h.fw.advance(6);
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  await fifo.stop();
+
+  assert.equal(fifo.collectedCount, 0);
+  assert.equal(errors.length, 1);
+  assert.match(String((errors[0] as Error).message), /unsupported FIFO data packet \(header 0x3a, 152 bytes\)/);
+  assert.ok((fifo.notifyStats['3a:152'] ?? 0) > 0);
+
+  // 次の収録では改めて 1 回知らせる
+  await fifo.start();
+  h.fw.advance(3);
+  await waitUntil(() => errors.length > 1, 'reported again on next capture');
+  await fifo.stop();
+  assert.equal(errors.length, 2);
 });

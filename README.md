@@ -202,6 +202,8 @@ COREは20260125以降、INSOLEは20260510以降のFWが必要です（COREの202
 
 バッファ再取得で欠損回復を試みますが、回復不能な欠損は `onDataLoss` で通知します。`stopOnLoss` の既定は `false` で収録を継続します。欠損時に停止したい場合は `new FifoRecorder(ble, { stopOnLoss: true })` としてください。
 
+INSOLEのFIFOデータパケットはFWによって2形式あり、自動で判別します。FW 20260924.1以降は1パケット8サンプル（200バイト）、それより前は4サンプル（104バイト）です。8サンプル形式ではシリアル番号の進みが約26/秒になり、CSVは1シリアルにつき8行になります。サンプル数や時間をシリアル数から換算するときは4を決め打ちせず、`fifo.framesPerPacket`（`onProgress` にも同名のフィールドがあります）を使ってください。追従遅れの上限は `fifo.ringCapacity` で分かります。1件も回収できないときは、届いた通知の内訳を `fifo.notifyStats` で確認できます。
+
 ```ts
 import { FifoRecorder } from 'orphe-core-insole';
 
