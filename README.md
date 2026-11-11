@@ -230,6 +230,15 @@ await gait.stop();
 gait.download('gait.csv');
 ```
 
+STEP_ANALYSIS の送り方は INSOLE の FW によって異なります。どちらのパケットも自動で判別してデコードし、同じ `GaitRow` で `onGait` に渡します。
+
+| FW | 送り方 |
+|---|---|
+| 20260924 より前 | 1 歩ぶんを 3 種のサブパケット（header 51, 20byte）に分けて送る。motion（`onMotion`）も常時届く |
+| 20260924 以降 | Step 検出時に 1 歩ぶんを 1 パケット（header 59, 51byte）で送る。motion は無く、静止中は通知が来ない。歩行タイプ `other` が届くことがある |
+
+`gait.sendsOnlyOnSteps` が `true`（INSOLE かつ FW 20260924 以降）のときは、静止中に通知が来なくても故障ではありません。`InsoleToolkitSession` はこの場合に到着確認を省き、`onDiagnostic` へ `liveness-deferred` を出します。
+
 ### 自動再接続
 
 自動再接続は既定で無効です。`begin()` のオプションで明示的に有効にします。

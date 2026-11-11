@@ -3,10 +3,11 @@
  *
  * overview / stride / pronation は取りこぼし対策で 2 回ずつ送られるため、
  * step_number 単位で集約・重複除去し、3 種揃った歩だけを出力する。
+ * まとめパケット（INSOLE FW 20260924 以降）は 1 件で 3 種が揃うため、そのまま出力する。
  * step 損失（incomplete / gap / jump）の統計もここで持つ。
  */
 import { GAIT_TYPES, STRIDE_DIRECTIONS, footStrikeToStr, pronationToStr } from './packet.ts';
-import type { GaitOverviewPacket, GaitPronationPacket, GaitStridePacket } from './packet.ts';
+import type { GaitOverviewPacket, GaitPronationPacket, GaitStepPacket, GaitStridePacket } from './packet.ts';
 
 
 const MAX_PENDING_STEPS = 64; // 揃わないまま溜まる歩の上限（メモリ保護）
@@ -144,6 +145,42 @@ export interface GaitPendingParts {
   pronation?: GaitPronationPacket;
 }
 
+/** まとめパケットを overview / stride / pronation の 3 種に分ける */
+export function splitGaitStepPacket(packet: GaitStepPacket): Required<GaitPendingParts> {
+  const step = packet.step_number;
+  return {
+    overview: {
+      type: 'overview',
+      subheader: 0,
+      step_number: step,
+      gait_type: packet.gait_type,
+      stride_direction: packet.stride_direction,
+      calorie: packet.calorie,
+      distance_m: packet.distance_m,
+      stance_phase_s: packet.stance_phase_s,
+      swing_phase_s: packet.swing_phase_s,
+    },
+    stride: {
+      type: 'stride',
+      subheader: 1,
+      step_number: step,
+      foot_angle: packet.foot_angle,
+      stride_x: packet.stride_x,
+      stride_y: packet.stride_y,
+      stride_z: packet.stride_z,
+    },
+    pronation: {
+      type: 'pronation',
+      subheader: 2,
+      step_number: step,
+      landing_force: packet.landing_force,
+      pronation_x: packet.pronation_x,
+      pronation_y: packet.pronation_y,
+      pronation_z: packet.pronation_z,
+    },
+  };
+}
+
 /** overview / stride / pronation を1歩ぶんにまとめ、派生指標も算出する */
 export function buildGaitRow(stepNumber: number, parts: Required<GaitPendingParts>): GaitRow {
   const { overview, stride, pronation } = parts;
@@ -231,10 +268,10 @@ export class GaitAggregator {
   }
 
   /**
-   * サブパケットを 1 件取り込む。
+   * サブパケット（またはまとめパケット）を 1 件取り込む。
    * @returns その歩の 3 種が揃ったら完成した {@link GaitRow}、まだなら null
    */
-  add(packet: GaitOverviewPacket | GaitStridePacket | GaitPronationPacket): GaitRow | null {
+  add(packet: GaitOverviewPacket | GaitStridePacket | GaitPronationPacket | GaitStepPacket): GaitRow | null {
     const step = packet.step_number;
     if (this.emitted.has(step)) return null; // 既出（2回目の送信）は無視
 
@@ -249,7 +286,8 @@ export class GaitAggregator {
       parts = {};
       this.pending.set(step, parts);
     }
-    if (packet.type === 'overview') parts.overview = packet;
+    if (packet.type === 'step') Object.assign(parts, splitGaitStepPacket(packet));
+    else if (packet.type === 'overview') parts.overview = packet;
     else if (packet.type === 'stride') parts.stride = packet;
     else parts.pronation = packet;
 
