@@ -128,6 +128,8 @@ class FakeInsoleFw {
   monitorRunning = false;
   /** 現在シリアル問い合わせに応答するか */
   respondToSerialQuery = true;
+  /** 現在シリアル応答に蓄積数を入れるか（false = 蓄積数を返さない FW。常に 0） */
+  reportAccumulated = true;
   /** データ範囲要求に応答するか（false なら完全沈黙） */
   respondToDataRequests = true;
   /** 1回だけ「BLE で落ちた」ことにするシリアル（応答から抜くが FW には残る） */
@@ -167,7 +169,8 @@ class FakeInsoleFw {
     const sub = bytes[1];
     if (sub === 0x01) {
       if (!this.respondToSerialQuery) return;
-      this.emit([0x35, 0x01, (this.currentSerial >> 8) & 0xff, this.currentSerial & 0xff, 0, (this.accumulated >> 8) & 0xff, this.accumulated & 0xff]);
+      const accumulated = this.reportAccumulated ? this.accumulated : 0;
+      this.emit([0x35, 0x01, (this.currentSerial >> 8) & 0xff, this.currentSerial & 0xff, 0, (accumulated >> 8) & 0xff, accumulated & 0xff]);
       return;
     }
     if (sub === 0x03) {
@@ -316,6 +319,30 @@ test('FIFO: 正常系 — 収集・onSamples・stop でモード復帰と CSV', 
   // sink が解除されている（再設定できる）
   const release = h.ble.setNotifySink('SENSOR_VALUES', () => {});
   release();
+});
+
+test('FIFO: 蓄積数を返さない FW でも、シリアルが進めば収集を始めて欠損なく回収する', async () => {
+  const h = await makeHarness();
+  h.fw.reportAccumulated = false;
+  const fifo = new FifoRecorder(h.ble, FAST_TIMING);
+  assert.equal(await fifo.start(), true);
+
+  // 蓄積数は 0 のまま、シリアルだけ進む。最初の数ポーリングで「蓄積数を返さない FW」と判定して要求を始める
+  h.fw.advance(5);
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  h.fw.advance(20);
+  await waitUntil(() => fifo.collectedCount > 0, '収集開始');
+  h.fw.advance(30);
+  await waitUntil(() => fifo.state.lastSerial === h.fw.currentSerial, '最新まで追従');
+
+  await fifo.stop();
+  assert.equal(fifo.state.noAccumulatedCount, true);
+  assert.equal(fifo.droppedCount, 0);
+  // 開始位置（判定できた時点の現在シリアル）以降は連続している
+  const serials = [...fifo.state.rawStore.keys()].sort((a, b) => a - b);
+  assert.ok(serials.length >= 30);
+  for (let i = 1; i < serials.length; i++) assert.equal(serials[i], serials[i - 1]! + 1);
+  assert.equal(serials[serials.length - 1], h.fw.currentSerial);
 });
 
 test('FIFO: デコード結果が decodeFifoPacket と一致し serial 順で揃う', async () => {

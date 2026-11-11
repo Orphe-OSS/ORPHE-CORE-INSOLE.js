@@ -198,7 +198,7 @@ const calibrations = await ble.commands.fetchPressureCalibrations({ timeoutMs: 1
 
 ### FIFO バッファ収録
 
-COREは20260905以降、INSOLEは20260510以降のFWが必要です。既知の非対応FWでは開始を拒否します。FW情報が取得できない場合はモードを絞り込まないため、`availableModes` にFIFOがあっても対応確認済みとは限りません。
+COREは20260125以降、INSOLEは20260510以降のFWが必要です（COREの20260905より前のFWは蓄積数を返しませんが、収録できます）。既知の非対応FWでは開始を拒否します。FW情報が取得できない場合はモードを絞り込まないため、`availableModes` にFIFOがあっても対応確認済みとは限りません。
 
 バッファ再取得で欠損回復を試みますが、回復不能な欠損は `onDataLoss` で通知します。`stopOnLoss` の既定は `false` で収録を継続します。欠損時に停止したい場合は `new FifoRecorder(ble, { stopOnLoss: true })` としてください。
 

@@ -89,6 +89,17 @@ export class FifoLoopState {
   lossEvents: FifoLossEvent[] = [];
   /** lastSerial=null が「再同期由来」か（初回 start 直後と区別） */
   resyncPending = false;
+  /** 現在シリアル応答で 1 以上の蓄積数を見たことがあるか */
+  sawAccumulated = false;
+  /** 未同期のまま蓄積数 0 を最初に見たときの現在シリアル（蓄積数を返さない FW の判定用） */
+  firstSerialSeen: number | null = null;
+  /**
+   * FW が蓄積数を返さない（CORE 3.0 の 20260905.1 より前）と判定したか。
+   * true の間は、未同期のとき現在のシリアル 1 件から要求を始める。
+   */
+  noAccumulatedCount = false;
+  /** 最後に要求し終えていたシリアル（再同期で lastSerial が null になっても残す） */
+  lastKnownSerial: number | null = null;
   /** 収録スパンの起点シリアル */
   firstStoredSerial: number | null = null;
   /** firstStoredSerial からの最大距離（収録スパン-1） */
@@ -146,13 +157,34 @@ export class FifoLoopState {
 
   /** 新規リクエストの [startSerial, requestSize] を計算 */
   calcRequestRange(currentSerial: number, accumulatedCount: number, maxNewRequest: number): [start: number, size: number] {
+    if (this.lastSerial !== null) this.lastKnownSerial = this.lastSerial;
     if (this.lastSerial === null) {
+      // 蓄積数を返さない FW（CORE 3.0 の 20260905.1 より前）への対応。
+      // そうした FW は現在シリアル応答の watermark / 蓄積数が常に 0 で、そのままだと
+      // requestSize が 0 のままになり、収録が始まらない（データは FW に溜まり続ける）。
+      // 「蓄積数を一度も見ていないのに、シリアルだけ進んでいる」ことで見分け、
+      // 現在のシリアル 1 件から要求を始める。蓄積数を返す FW の「まだ何も溜まっていない」
+      // （シリアルが進んでいない）とは区別する。
+      let legacyLost = 0;
+      if (accumulatedCount > 0) {
+        this.sawAccumulated = true;
+      } else if (!this.sawAccumulated) {
+        if (this.firstSerialSeen === null) this.firstSerialSeen = currentSerial;
+        else if (currentSerial !== this.firstSerialSeen) this.noAccumulatedCount = true;
+      }
+      if (accumulatedCount === 0 && this.noAccumulatedCount) {
+        accumulatedCount = 1;
+        // 再同期では取り残した件数を FW から聞けないので、最後に要求済みだったシリアルからの距離で数える
+        if (this.resyncPending && this.lastKnownSerial !== null) {
+          legacyLost = Math.max(0, serialDistance(this.lastKnownSerial, currentSerial) - 1);
+        }
+      }
       const requestSize = Math.min(accumulatedCount, maxNewRequest);
       // 再同期直後は「直近 requestSize 件」だけを要求するため、それより古い未回収
       // バックログは要求されず失われる。無音欠損にしないよう計上する。
       // 初回 start 直後（resyncPending=false）はバッファ消去済みなので損失ではない。
       if (this.resyncPending) {
-        const lost = Math.max(0, accumulatedCount - requestSize);
+        const lost = Math.max(0, accumulatedCount - requestSize) + legacyLost;
         if (lost > 0) {
           this.dropped += lost;
           this.lossEvents.push({ reason: 'resync_backlog', dropped: lost });
@@ -183,6 +215,8 @@ export class FifoLoopState {
 
   /** レスポンス後に lastSerial と carryOver を更新。戻り値はログ用 */
   updateAfterResponse(bleLoss: Set<number>, newNoData: Set<number>, startSerial: number, requestSize: number): 'resync' | 'ok' {
+    // 要求し終えた範囲の末尾を覚えておく（no-data で再同期しても、ここまでは carryOver / fw_nodata 側で計上済み）
+    if (requestSize > 0) this.lastKnownSerial = (startSerial + requestSize - 1) % UINT16_MAX;
     if (bleLoss.size > 0) {
       this.carryOver.push(...buildRequestsFromSerials(bleLoss));
       const totalPending = this.carryOver.reduce((sum, [, c]) => sum + c, 0);
