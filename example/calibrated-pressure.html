@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="ja">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ORPHE INSOLE — Calibrated Pressure</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body>
+  <header class="page">
+    <h1>ORPHE INSOLE — Calibrated Pressure</h1>
+    <span class="sub">converted_press（荷重 [N]）と個体別圧力校正係数</span>
+    <a href="./index.html">← examples</a>
+  </header>
+
+  <section class="card">
+    <h2>ORPHE INSOLE
+      <span class="badge" data-state>disconnected</span>
+      <span class="device" data-device></span>
+    </h2>
+
+    <div class="controls">
+      <button data-connect>接続</button>
+      <button data-refetch disabled>校正値を取り直す</button>
+      <span class="hint" data-status>未接続・校正値未取得</span>
+    </div>
+    <div class="hint" data-fw></div>
+
+    <div class="press-bars">
+      <div class="ch"><div class="bar-track"><div class="bar" data-bar="0"></div></div><div class="val" data-val="0">-</div><div class="name">①つま先内</div></div>
+      <div class="ch"><div class="bar-track"><div class="bar" data-bar="1"></div></div><div class="val" data-val="1">-</div><div class="name">②母趾球</div></div>
+      <div class="ch"><div class="bar-track"><div class="bar" data-bar="2"></div></div><div class="val" data-val="2">-</div><div class="name">③つま先外</div></div>
+      <div class="ch"><div class="bar-track"><div class="bar" data-bar="3"></div></div><div class="val" data-val="3">-</div><div class="name">④中足中</div></div>
+      <div class="ch"><div class="bar-track"><div class="bar" data-bar="4"></div></div><div class="val" data-val="4">-</div><div class="name">⑤中足外</div></div>
+      <div class="ch"><div class="bar-track"><div class="bar" data-bar="5"></div></div><div class="val" data-val="5">-</div><div class="name">⑥踵</div></div>
+    </div>
+
+    <table class="values">
+      <thead>
+        <tr><th class="row">センサー</th><th>換算</th><th>func</th><th>c1</th><th>c2</th><th>c3</th><th>c4</th><th>c5</th></tr>
+      </thead>
+      <tbody data-calibration></tbody>
+    </table>
+    <div class="hint">
+      func 0: <code>c1·exp(c2·x) + c3</code>（c4・c5 は未使用） ／ func 1: <code>c1·x⁴ + c2·x³ + c3·x² + c4·x + c5</code>。
+      x は ADC 生値、負の結果は 0 N。個体別係数が無い ch は既定係数（ch ごとの 4 次多項式）で換算する。
+    </div>
+
+    <div class="log" data-log></div>
+
+    <details class="debug">
+      <summary>オプション</summary>
+      <div class="controls">
+        <label><input type="checkbox" id="shared-debug" checked>デバッグログ</label>
+      </div>
+    </details>
+  </section>
+
+  <script type="module" src="./calibrated-pressure.ts"></script>
+</body>
+
+</html>

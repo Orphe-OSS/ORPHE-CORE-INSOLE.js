@@ -4,9 +4,10 @@
  *   以後の press を N に換算した converted_press を配送する
  * - FW は圧力を含む配信モード（3 / 4）のときだけ要求に応答する。
  *   圧力を含まないモードを要求されたら、取得の間だけモード 4 にして戻す
- * - 応答がない ch は固定式で換算し、begin() は失敗させない
+ * - 応答がない ch は既定係数で換算し、begin() は失敗させない
  * - 取得結果（対応 FW か、ch ごとの係数・未書込・応答なし）をログに出す
- * - 旧 FW / FW 不明では取得せず、固定式で換算する
+ * - 旧 FW / FW 不明では取得せず、既定係数で換算する
+ * - 接続中は commands.fetchPressureCalibrations() で取り直せる（例外なし・失敗は null）
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -18,7 +19,7 @@ import { ORPHE_UUID } from '../../src/protocol/uuids.ts';
 import { encodeDateTime } from '../../src/protocol/datetime.ts';
 import {
   applyPressureCalibration,
-  legacyPressureToNewton,
+  defaultPressureToNewton,
 } from '../../src/protocol/pressure-calibration.ts';
 import type { PressureCalibration } from '../../src/protocol/pressure-calibration.ts';
 import { fwPayload } from '../helpers/fw-payload.ts';
@@ -98,7 +99,7 @@ function makeInsole(options: HarnessOptions = {}) {
     .map(w => (w[0] === 0x0d ? `mode:${w[1]}` : `req:${w[2]}`));
   /** 圧力校正のログだけ */
   const calibrationLogs = () => logs.filter(l => l.message.startsWith('圧力校正'));
-  return { ble, profile, info, sensor, requests, errors, writeSequence, calibrationLogs };
+  return { ble, bluetooth, device, profile, info, sensor, requests, errors, writeSequence, calibrationLogs };
 }
 
 function pressPacket(values: number[]): DataView {
@@ -160,7 +161,7 @@ test('対応 FW: press と一緒に converted_press（N）が配送される', a
   assert.deepEqual(received[0]!.converted, RAW.map((x, ch) => applyPressureCalibration(deviceCalibration(ch), x)));
 });
 
-test('旧 FW（前日 20260427）: 取得せず、converted_press は固定式で換算する', async () => {
+test('旧 FW（前日 20260427）: 取得せず、converted_press は既定係数で換算する', async () => {
   const h = makeInsole({ fw: fwPayload(2026, 4, 27) });
   const converted: number[][] = [];
   h.ble.on('*', (sample) => {
@@ -173,7 +174,7 @@ test('旧 FW（前日 20260427）: 取得せず、converted_press は固定式�
   assert.deepEqual(h.requests, []);
   assert.deepEqual(h.writeSequence(), ['mode:4']);
   assert.equal(h.profile.pressure_calibrations, null);
-  assert.deepEqual(converted[0], RAW.map(legacyPressureToNewton));
+  assert.deepEqual(converted[0], RAW.map((x, ch) => defaultPressureToNewton(x, ch)));
 });
 
 test('FW 不明（GET_FW_NAME なし）: 旧 FW として扱い取得しない', async () => {
@@ -183,7 +184,7 @@ test('FW 不明（GET_FW_NAME なし）: 旧 FW として扱い取得しない',
   assert.equal(h.profile.pressure_calibrations, null);
 });
 
-test('プレースホルダ（func 0・全係数 1.0）の ch だけ固定式に戻す', async () => {
+test('プレースホルダ（func 0・全係数 1.0）の ch だけ既定係数に戻す', async () => {
   const h = makeInsole({
     respond: (ch) => ch === 3
       ? calibrationPayload(ch, 0, [1, 1, 1, 1, 1])
@@ -198,7 +199,7 @@ test('プレースホルダ（func 0・全係数 1.0）の ch だけ固定式に
   h.sensor.emit(pressPacket(RAW));
 
   assert.equal(h.profile.pressure_calibrations![3], null);
-  assert.equal(converted[0]![3], legacyPressureToNewton(RAW[3]!));
+  assert.equal(converted[0]![3], defaultPressureToNewton(RAW[3]!, 3));
   assert.equal(converted[0]![2], applyPressureCalibration(deviceCalibration(2), RAW[2]!));
 });
 
@@ -214,7 +215,7 @@ test('無応答は再試行し、1 回目が落ちても 2 回目で拾う', asy
   assert.deepEqual(h.profile.pressure_calibrations![2], deviceCalibration(2));
 });
 
-test('再試行を使い切った ch は固定式にして、begin() は成功させる', async () => {
+test('再試行を使い切った ch は既定係数にして、begin() は成功させる', async () => {
   const h = makeInsole({
     profile: { pressureCalibration: FAST },
     respond: (ch) => ch === 4 ? null : calibrationPayload(ch, 1, deviceCalibration(ch).coefficients),
@@ -257,6 +258,133 @@ test('校正応答（0x39）はセンサーサンプルとして配送されな�
   assert.equal(samples.filter(s => (s as { lost_data?: unknown }).lost_data).length, 0);
 });
 
+// ─── 取り直し（commands.fetchPressureCalibrations） ─────────────────
+
+test('取り直し: 接続中に 6ch を取り直し、pressure_calibrations を更新する', async () => {
+  let scale = 1;
+  const h = makeInsole({
+    respond: (ch) => calibrationPayload(ch, 1, [0, 0, 0, (ch + 1) * scale, 0]),
+  });
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  const before = h.profile.pressure_calibrations;
+  scale = 10;
+  const result = await h.ble.commands.fetchPressureCalibrations();
+
+  assert.deepEqual(h.writeSequence().slice(7), ['req:0', 'req:1', 'req:2', 'req:3', 'req:4', 'req:5']);
+  assert.deepEqual(result, [0, 1, 2, 3, 4, 5].map((ch) => ({ func: 1, coefficients: [0, 0, 0, (ch + 1) * 10, 0] })));
+  assert.equal(h.profile.pressure_calibrations, result);
+  assert.notEqual(h.profile.pressure_calibrations, before);
+  assert.equal(h.profile.streaming_mode, 4);
+  assert.deepEqual(h.errors, []);
+});
+
+test('取り直し: 同時に呼ぶと実行中の Promise を共有し、要求は 6ch ぶんだけ', async () => {
+  const h = makeInsole();
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  const a = h.ble.commands.fetchPressureCalibrations();
+  const b = h.ble.commands.fetchPressureCalibrations();
+  assert.equal(a, b);
+  await a;
+  assert.equal(h.requests.length, 12);
+  // 終わったら次の呼び出しは新しく取りに行く
+  await h.ble.commands.fetchPressureCalibrations();
+  assert.equal(h.requests.length, 18);
+});
+
+test('取り直し: mode 1 なら取得の間だけ mode 4 にして、mode 1 に戻す', async () => {
+  const h = makeInsole();
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 1 });
+  const written = h.writeSequence().length;
+  const result = await h.ble.commands.fetchPressureCalibrations();
+  assert.deepEqual(
+    h.writeSequence().slice(written),
+    ['mode:4', 'req:0', 'req:1', 'req:2', 'req:3', 'req:4', 'req:5', 'mode:1']
+  );
+  assert.equal(result?.length, 6);
+  assert.equal(h.profile.streaming_mode, 1);
+});
+
+test('取り直し: begin() 前は書き込まず（chooser も開かず）null', async () => {
+  const h = makeInsole();
+  const result = await h.ble.commands.fetchPressureCalibrations();
+  assert.equal(result, null);
+  assert.equal(h.profile.pressure_calibrations, null);
+  assert.deepEqual(h.info.written, []);
+  assert.equal(h.bluetooth.requestDeviceCalls.length, 0);
+  assert.deepEqual(h.errors, []);
+});
+
+test('取り直し: 切断後は書き込まず null にし、既定係数で換算する', async () => {
+  const h = makeInsole();
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  assert.equal(h.profile.pressure_calibrations?.length, 6);
+  const written = h.info.written.length;
+  const chooser = h.bluetooth.requestDeviceCalls.length;
+  h.device.gatt.disconnect();
+
+  const result = await h.ble.commands.fetchPressureCalibrations();
+  assert.equal(result, null);
+  assert.equal(h.profile.pressure_calibrations, null);
+  assert.equal(h.info.written.length, written);
+  assert.equal(h.bluetooth.requestDeviceCalls.length, chooser);
+  assert.deepEqual(h.errors, []);
+});
+
+test('取り直し: 非対応 FW は要求せず null', async () => {
+  const h = makeInsole({ fw: fwPayload(2026, 4, 27) });
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  assert.equal(await h.ble.commands.fetchPressureCalibrations(), null);
+  assert.deepEqual(h.requests, []);
+});
+
+test('取り直し: pressureCalibration.fetch = false でも明示的に呼べば取りに行く', async () => {
+  const h = makeInsole({ profile: { pressureCalibration: { fetch: false } } });
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  assert.equal(h.profile.pressure_calibrations, null);
+  const result = await h.ble.commands.fetchPressureCalibrations();
+  assert.equal(result?.length, 6);
+});
+
+test('取り直し: 全 ch 応答なしなら null（例外・onError なし）', async () => {
+  let respond = true;
+  const h = makeInsole({
+    respond: (ch) => respond ? calibrationPayload(ch, 1, deviceCalibration(ch).coefficients) : null,
+  });
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  respond = false;
+  const result = await h.ble.commands.fetchPressureCalibrations({ timeoutMs: 5, retries: 2 });
+  assert.equal(result, null);
+  assert.equal(h.profile.pressure_calibrations, null);
+  assert.equal(h.requests.length, 6 + 12);
+  assert.deepEqual(h.errors, []);
+});
+
+test('取り直し: 一部の ch だけ応答がなければ、その ch だけ null', async () => {
+  let silentCh = -1;
+  const h = makeInsole({
+    respond: (ch) => ch === silentCh ? null : calibrationPayload(ch, 1, deviceCalibration(ch).coefficients),
+  });
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  silentCh = 2;
+  const result = await h.ble.commands.fetchPressureCalibrations({ timeoutMs: 5, retries: 1 });
+  assert.equal(result?.[2], null);
+  assert.deepEqual(result?.[3], deviceCalibration(3));
+});
+
+test('取り直し: 書き込みが例外でも null を返し、onError を呼ばない', async () => {
+  const h = makeInsole();
+  await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+  const original = h.info.onWriteValue;
+  h.info.onWriteValue = (bytes) => {
+    if (bytes[0] === 0x10) throw new Error('write failed');
+    original?.(bytes);
+  };
+  const result = await h.ble.commands.fetchPressureCalibrations({ timeoutMs: 5, retries: 1 });
+  assert.equal(result, null);
+  assert.equal(h.profile.pressure_calibrations, null);
+  assert.deepEqual(h.errors, []);
+});
+
 // ─── ログ ───────────────────────────────────────────────────────────
 
 test('ログ: 対応 FW では ch ごとの係数・未書込・応答なしと、集計を出す', async () => {
@@ -277,8 +405,8 @@ test('ログ: 対応 FW では ch ごとの係数・未書込・応答なしと�
     '圧力校正 ch0: 個体別係数',
     '圧力校正 ch1: 個体別係数',
     '圧力校正 ch2: 個体別係数',
-    '圧力校正 ch3: 未書込（func 0・係数すべて 1.0）。固定式で換算',
-    '圧力校正 ch4: 応答なし（2 回）。固定式で換算',
+    '圧力校正 ch3: 未書込（func 0・係数すべて 1.0）。既定係数で換算',
+    '圧力校正 ch4: 応答なし（2 回）。既定係数で換算',
     '圧力校正 ch5: 個体別係数',
     '圧力校正: 個体別係数 4ch / 未書込 1ch / 応答なし 1ch',
   ]);
@@ -290,7 +418,7 @@ test('ログ: 旧 FW ではリリース日としきい値を出し、取得し�
   const h = makeInsole({ fw: fwPayload(2026, 4, 27) });
   await h.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
   assert.deepEqual(h.calibrationLogs().map(l => l.message), [
-    '圧力校正: 非対応 FW（リリース日 20260427 < 20260428）。固定式で換算',
+    '圧力校正: 非対応 FW（リリース日 20260427 < 20260428）。既定係数で換算',
   ]);
 });
 
@@ -298,12 +426,12 @@ test('ログ: FW 不明・取得無効もそれと分かるように出す', asy
   const unknown = makeInsole({ fw: null });
   await unknown.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
   assert.deepEqual(unknown.calibrationLogs().map(l => l.message), [
-    '圧力校正: FW 不明のため取得しません。固定式で換算',
+    '圧力校正: FW 不明のため取得しません。既定係数で換算',
   ]);
 
   const disabled = makeInsole({ profile: { pressureCalibration: { fetch: false } } });
   await disabled.ble.begin('SENSOR_VALUES', { streamingMode: 4 });
   assert.deepEqual(disabled.calibrationLogs().map(l => l.message), [
-    '圧力校正: 取得無効（pressureCalibration.fetch = false）。固定式で換算',
+    '圧力校正: 取得無効（pressureCalibration.fetch = false）。既定係数で換算',
   ]);
 });

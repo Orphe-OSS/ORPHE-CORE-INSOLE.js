@@ -7,6 +7,10 @@ import assert from 'node:assert/strict';
 import { OrpheInsole } from '../../src/compat/orphe-insole.ts';
 import { MemoryStorage, MockBluetooth, waitFor } from '../helpers/mock-bluetooth.ts';
 import { mockInsoleDevice } from '../helpers/insole-device.ts';
+import { calibrationPayload } from '../helpers/calibration-payload.ts';
+import { fwPayload } from '../helpers/fw-payload.ts';
+import { ORPHE_UUID } from '../../src/protocol/uuids.ts';
+import { defaultPressureToNewton } from '../../src/protocol/pressure-calibration.ts';
 
 function makeInsole(id = 0, storage = new MemoryStorage()) {
   const bluetooth = new MockBluetooth();
@@ -345,4 +349,83 @@ test('既定のライフサイクルコールバックは debug=false で沈黙�
   } finally {
     console.log = originalLog;
   }
+});
+
+// ─── 圧力校正（ORPHE-INSOLE.js と同じ pressure_calibration / getPressureCalibration） ───
+
+/** 対応 FW を名乗り、圧力を含むモードで校正要求に応答するモックデバイス */
+function calibratedInsoleDevice(respond: (ch: number) => DataView | null) {
+  const mock = mockInsoleDevice();
+  mock.device.gatt.getOrCreateService(ORPHE_UUID.OTHER_SERVICE)
+    .getOrCreate(ORPHE_UUID.GET_FW_NAME).readValueData = fwPayload(2026, 4, 28);
+  let mode = 0;
+  mock.deviceInfo.onWriteValue = (bytes) => {
+    if (bytes[0] === 0x0d) mode = bytes[1]!;
+    if (bytes[0] !== 0x10 || (mode !== 3 && mode !== 4)) return;
+    const payload = respond(bytes[2]!);
+    if (payload) mock.sensor.emit(payload);
+  };
+  return mock;
+}
+
+test('pressure_calibration: begin() で取得した係数を ORPHE-INSOLE.js と同じ形で返す', async () => {
+  const { insole, bluetooth, errors } = makeInsole();
+  assert.equal(insole.pressure_calibration, null);
+  const { device } = calibratedInsoleDevice((ch) =>
+    ch === 5 ? calibrationPayload(ch, 0, [1, 1, 1, 1, 1]) : calibrationPayload(ch, ch % 2, [ch, 2, 3, 4, 5]));
+  bluetooth.chooserQueue.push(device);
+  await insole.begin('SENSOR_VALUES', { streamingMode: 4 });
+
+  assert.deepEqual(insole.pressure_calibration, [
+    { sensor_index: 0, func: 0, coeffs: [0, 2, 3, 4, 5] },
+    { sensor_index: 1, func: 1, coeffs: [1, 2, 3, 4, 5] },
+    { sensor_index: 2, func: 0, coeffs: [2, 2, 3, 4, 5] },
+    { sensor_index: 3, func: 1, coeffs: [3, 2, 3, 4, 5] },
+    { sensor_index: 4, func: 0, coeffs: [4, 2, 3, 4, 5] },
+    null, // 未書込（プレースホルダ）の ch は null 要素
+  ]);
+  assert.deepEqual(errors, []);
+});
+
+test('getPressureCalibration(): 接続中に取り直し、取れなければ null（例外・onError なし）', async () => {
+  const { insole, bluetooth, errors } = makeInsole();
+  // 未接続では chooser を開かずに null
+  assert.equal(await insole.getPressureCalibration(), null);
+  assert.equal(bluetooth.requestDeviceCalls.length, 0);
+
+  let scale = 1;
+  let respond = true;
+  const { device } = calibratedInsoleDevice((ch) =>
+    respond ? calibrationPayload(ch, 1, [0, 0, 0, scale, ch]) : null);
+  bluetooth.chooserQueue.push(device);
+  await insole.begin('SENSOR_VALUES', { streamingMode: 4 });
+
+  scale = 2;
+  const result = await insole.getPressureCalibration({ timeoutMs: 50 });
+  assert.deepEqual(result?.map(c => c?.coeffs), [0, 1, 2, 3, 4, 5].map(ch => [0, 0, 0, 2, ch]));
+  assert.deepEqual(insole.pressure_calibration, result);
+
+  respond = false;
+  assert.equal(await insole.getPressureCalibration({ timeoutMs: 1 }), null);
+  assert.equal(insole.pressure_calibration, null);
+  assert.deepEqual(errors, []);
+});
+
+test('converted_press: 校正値が無ければ既定係数（ch ごとの多項式）で換算する', async () => {
+  const { insole, bluetooth } = makeInsole();
+  const { device, sensor } = mockInsoleDevice(); // FW 不明 = 取得しない
+  bluetooth.chooserQueue.push(device);
+  await insole.begin('SENSOR_VALUES', { streamingMode: 4 });
+  const converted: number[][] = [];
+  insole.gotConvertedPress = function (press) { converted.push(press.values); };
+
+  const packet = sensorPacket(56, 1);
+  for (let i = 0; i < 6; i++) {
+    packet.setUint16(60 + 2 * i, 1000); // 1 サンプル目
+    packet.setUint16(28 + 2 * i, 1000); // 2 サンプル目
+  }
+  sensor.emit(packet);
+
+  assert.equal(insole.pressure_calibration, null);
+  assert.deepEqual(converted[0], [0, 1, 2, 3, 4, 5].map((ch) => defaultPressureToNewton(1000, ch)));
 });

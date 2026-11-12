@@ -357,7 +357,7 @@ export class OrpheBleTransport {
           this.fireEvent('onWrite', uuid);
         })
         .catch(error => {
-          this.reportError(error);
+          if (!options.silent) this.reportError(error);
           throw error;
         })
     );

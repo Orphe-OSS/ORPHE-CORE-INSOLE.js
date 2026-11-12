@@ -11,7 +11,6 @@ import { TransportError } from '../ble/errors.ts';
 import { downloadCsv } from '../csv.ts';
 import {
   CORE_REALTIME_READ_MODE,
-  DATA_PACKET_BYTE_LENGTH,
   DEFAULT_DRAIN_TIMEOUT_MS,
   FIFO_DEFAULT_RANGE,
   FIFO_READ_MODE,
@@ -32,6 +31,7 @@ import {
   fifoRangeFromDeviceInformation,
   expandRequestsToList,
   extractSerialIfSensorPacket,
+  fifoPacketLayout,
   parseCurrentSerial,
   parseNoDataResponse,
   rawStoreToCSV,
@@ -126,10 +126,14 @@ export interface FifoProgressInfo {
   lastReceived: number;
   /** そのとき FW が持っていた最新シリアル番号（取得できなければ null） */
   currentSerial: number | null;
-  /** 追従遅れ（未取得シリアル数）。FIFO_RING_BUFFER_CAPACITY に近づくと欠損の危険 */
+  /** 追従遅れ（未取得シリアル数）。{@link FifoProgressInfo.ringCapacity} に近づくと欠損の危険 */
   lag: number;
   /** 回復不能に失われた累計シリアル数 */
   dropped: number;
+  /** 1 パケットのサンプル数（INSOLE 4 | 8、CORE 8。データ未受信なら null） */
+  framesPerPacket: number | null;
+  /** lag の上限 packet 数（104 byte 形式 1500 / INSOLE 8 フレーム形式 750） */
+  ringCapacity: number;
   /** stop() 後の回収フェーズ中は true */
   draining?: boolean;
   /** catch-up（未要求バックログ回収）中は true */
@@ -289,6 +293,8 @@ export class FifoRecorder {
   private autoStopped = false;
   private lastCurrentSerial: number | null = null;
   private captureId = 0;
+  private warnedUnknownPacket = false;
+  private notifyCounts = new Map<string, number>();
   /** start() 時点の device information のレンジ。デコードと CSV の換算に使う */
   private range: FifoRange = FIFO_DEFAULT_RANGE;
 
@@ -318,6 +324,24 @@ export class FifoRecorder {
   /** 収録中なら true。 */
   get isRunning(): boolean {
     return this.running;
+  }
+
+  /** 収録中のパケット形式（1 パケットのサンプル数。INSOLE 4 | 8、CORE 8。データ未受信なら null） */
+  get framesPerPacket(): number | null {
+    return this.state.framesPerPacket;
+  }
+
+  /** lag がこれを超えたぶんを回復不能として扱う上限 packet 数（104 byte 形式 1500 / INSOLE 8 フレーム形式 750） */
+  get ringCapacity(): number {
+    return this.state.ringCapacity;
+  }
+
+  /**
+   * FIFO 中に届いた通知の内訳 `{ 'ヘッダ(hex):長さ': 件数 }`。例: `{ '35:7': 120, '3a:200': 950 }`。
+   * 0 件で終わったときに、何が届いていたかを切り分けるための診断用。start() ごとにリセットする。
+   */
+  get notifyStats(): Record<string, number> {
+    return Object.fromEntries(this.notifyCounts);
   }
 
   /**
@@ -476,6 +500,8 @@ export class FifoRecorder {
     // 収集直前の状態をクリア
     this.state = new FifoLoopState();
     this.captureId += 1;
+    this.warnedUnknownPacket = false; // 未対応パケットの通知は収録ごとに 1 回
+    this.notifyCounts = new Map();
     this.range = fifoRangeFromDeviceInformation(this.ble.profile.device_information);
     this.restoreMode =
       this.options.restoreMode !== undefined
@@ -485,7 +511,10 @@ export class FifoRecorder {
 
     // notify をこのモジュールの queue へ横取り（別モジュールが横取り中なら失敗する）
     try {
-      this.removeSink = this.ble.setNotifySink('SENSOR_VALUES', (dv) => this.queue.push(dv));
+      this.removeSink = this.ble.setNotifySink('SENSOR_VALUES', (dv) => {
+        this.countNotify(dv);
+        this.queue.push(dv);
+      });
     } catch (error) {
       this.reportError(error);
       return false;
@@ -627,6 +656,8 @@ export class FifoRecorder {
           currentSerial: this.lastCurrentSerial,
           lag: serialDistance(state.lastSerial!, frozenTarget!) + state.carryOver.reduce((sum, [, c]) => sum + c, 0),
           dropped: state.dropped,
+          framesPerPacket: state.framesPerPacket,
+          ringCapacity: state.ringCapacity,
           draining: true,
           catchup: true,
         }));
@@ -666,6 +697,8 @@ export class FifoRecorder {
           currentSerial: this.lastCurrentSerial,
           lag: state.carryOver.reduce((sum, [, c]) => sum + c, 0),
           dropped: state.dropped,
+          framesPerPacket: state.framesPerPacket,
+          ringCapacity: state.ringCapacity,
           draining: true,
         }));
       }
@@ -836,6 +869,8 @@ export class FifoRecorder {
           currentSerial,
           lag: this.lag,
           dropped: state.dropped,
+          framesPerPacket: state.framesPerPacket,
+          ringCapacity: state.ringCapacity,
         }));
       }
 
@@ -871,7 +906,14 @@ export class FifoRecorder {
         continue;
       }
       const serial = extractSerialIfSensorPacket(dv);
-      if (serial !== null && expectedSerials.has(serial) && dv.byteLength === DATA_PACKET_BYTE_LENGTH) {
+      if (serial === null) continue;
+      const layout = fifoPacketLayout(dv, this.ble.profile.kind);
+      if (!layout) {
+        this.noteUnknownPacket(dv);
+        continue;
+      }
+      if (expectedSerials.has(serial)) {
+        this.state.notePacketLayout(layout);
         received.set(serial, dv);
       }
     }
@@ -881,7 +923,7 @@ export class FifoRecorder {
   // ── 収集停止 ───────────────────────────────────────────────────────
   /**
    * 収集を停止し、リアルタイムモードへ復帰する。
-   * @returns 収集した raw ストア（serial → 104byte DataView）
+   * @returns 収集した raw ストア（serial → データパケットの DataView。104 byte、INSOLE 8 フレーム形式は 200 byte）
    */
   async stop(): Promise<Map<number, DataView>> {
     if (!this.loopPromise) return this.state.rawStore;
@@ -940,6 +982,28 @@ export class FifoRecorder {
     } catch (error) {
       this.reportError(error);
     }
+  }
+
+  // 通知を「ヘッダ:長さ」ごとに数える。診断用なので失敗しても収録は続ける。
+  private countNotify(dv: DataView): void {
+    try {
+      const header = dv.byteLength ? dv.getUint8(0).toString(16).padStart(2, '0') : '--';
+      const key = `${header}:${dv.byteLength}`;
+      this.notifyCounts.set(key, (this.notifyCounts.get(key) ?? 0) + 1);
+    } catch {
+      /* noop */
+    }
+  }
+
+  // データヘッダなのに長さが合わないパケットは黙って捨てず、収録ごとに 1 回だけ知らせる
+  // （FW の形式変更で 0 件のまま終わるのを防ぐ）。
+  private noteUnknownPacket(dv: DataView): void {
+    if (this.warnedUnknownPacket) return;
+    this.warnedUnknownPacket = true;
+    this.reportError(new Error(
+      `FifoRecorder: unsupported FIFO data packet (header 0x${dv.getUint8(0).toString(16)}, ${dv.byteLength} bytes). ` +
+      'This firmware may use a packet format the SDK does not support yet.'
+    ));
   }
 
   private reportError(error: unknown): void {

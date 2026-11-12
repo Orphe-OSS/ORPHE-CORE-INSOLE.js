@@ -19,6 +19,7 @@ import type {
 } from '../profiles/insole.ts';
 import { InsoleProfile, decodeInsoleDeviceInformation, insoleProfile, parseInsoleSensorValues } from '../profiles/insole.ts';
 import { INSOLE_STREAMING_MODES } from '../modes/insole.ts';
+import type { PressureCalibration } from '../protocol/pressure-calibration.ts';
 import { ORPHE_UUID } from '../protocol/uuids.ts';
 import type { EulerAngles, Quat, Vec3 } from '../protocol/geometry.ts';
 
@@ -31,6 +32,26 @@ export interface InsoleSensorDataEvent {
   receivedAt: number;
   packet: InsoleSensorPacket;
   data: DataView;
+}
+
+/**
+ * ORPHE-INSOLE.js と同じ形の 1ch ぶんの圧力校正係数（`pressure_calibration` の要素）。
+ * func 0 は `a·exp(b·x) + c`、func 1 は `a·x⁴ + b·x³ + c·x² + d·x + e`
+ */
+export interface InsolePressureCalibration {
+  sensor_index: number;
+  func: number;
+  coeffs: number[];
+}
+
+/** profile の係数配列を ORPHE-INSOLE.js の形に直す。ch 単位の欠けは null 要素 */
+function toInsolePressureCalibration(
+  calibrations: readonly (PressureCalibration | null)[] | null
+): (InsolePressureCalibration | null)[] | null {
+  if (!calibrations || calibrations.every(c => c === null)) return null;
+  return calibrations.map((c, sensor_index) =>
+    c ? { sensor_index, func: c.func, coeffs: [...c.coefficients] } : null
+  );
 }
 
 /** begin() のオプション */
@@ -99,6 +120,25 @@ export class OrpheInsole extends LegacyDevice<InsoleSensorFields> {
   /** begin() で取得したデバイス情報。未取得なら '' */
   get device_information(): InsoleDeviceInformation | '' {
     return this.profile.device_information ?? '';
+  }
+
+  /**
+   * begin() で取得した個体別圧力校正係数（ORPHE-INSOLE.js と同じ形。index = センサー番号 0..5）。
+   * 未取得・非対応 FW・1ch も使えないときは null で、`converted_press` は既定係数で換算する。
+   * 未書込・応答なしの ch は null 要素になり、その ch だけ既定係数を使う
+   */
+  get pressure_calibration(): (InsolePressureCalibration | null)[] | null {
+    return toInsolePressureCalibration(this.profile.pressure_calibrations);
+  }
+
+  /**
+   * 接続中に圧力校正係数を取り直す。例外は出さず onError も呼ばない。
+   * 取れなければ null（`converted_press` は既定係数で換算）
+   */
+  async getPressureCalibration(options: { timeoutMs?: number } = {}): Promise<(InsolePressureCalibration | null)[] | null> {
+    return toInsolePressureCalibration(
+      await this.profile.refetchPressureCalibrations(this.device.transport, options)
+    );
   }
 
   /** 現在のデータストリーミングモード。未設定なら undefined */

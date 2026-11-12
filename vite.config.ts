@@ -13,6 +13,7 @@ export default defineConfig({
         core: fileURLToPath(new URL('example/core.html', import.meta.url)),
         insole: fileURLToPath(new URL('example/insole.html', import.meta.url)),
         auto: fileURLToPath(new URL('example/auto.html', import.meta.url)),
+        'calibrated-pressure': fileURLToPath(new URL('example/calibrated-pressure.html', import.meta.url)),
       },
     },
   },

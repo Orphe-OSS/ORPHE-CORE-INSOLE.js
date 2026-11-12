@@ -62,9 +62,16 @@ export const INSOLE_FIFO_MIN_RELEASE_DATE = 20260510;
 /**
  * 個体別の圧力校正係数を持つ INSOLE FW の最小リリース日（`YYYYMMDD`）。
  * これ以降の FW では begin() で係数を取得し、圧力の N 換算に使う。
- * それより古い FW（および FW 不明）は固定式で換算する。
+ * それより古い FW（および FW 不明）は既定係数（ch ごとの多項式）で換算する。
  */
 export const INSOLE_PRESSURE_CALIBRATION_MIN_RELEASE_DATE = 20260428;
+
+/**
+ * STEP_ANALYSIS を Step 検出時だけ送る INSOLE FW の最小リリース日（`YYYYMMDD`）。
+ * これ以降の FW は 1 歩ぶんを 1 パケット（header 59）にまとめて送り、静止中は notify しない。
+ * それより古い FW（および FW 不明）は従来どおり常時送信として扱う。
+ */
+export const INSOLE_STEP_ANALYSIS_STEP_ONLY_MIN_RELEASE_DATE = 20260924;
 
 /**
  * INSOLE の取得モード一覧（FW による絞り込み前）。

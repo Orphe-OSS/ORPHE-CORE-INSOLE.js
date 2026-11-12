@@ -36,7 +36,7 @@
     "applicationCategory": "DeveloperApplication",
     "operatingSystem": "Web (Chrome, Edge)",
     "description": "JavaScript SDK that connects ORPHE CORE compact IMU sensors and ORPHE INSOLE smart insoles to browser apps via Web Bluetooth with one shared API.",
-    "softwareVersion": "0.2.1",
+    "softwareVersion": "0.3.0",
     "inLanguage": "en",
     "license": "https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/blob/main/LICENSE.md",
     "codeRepository": "https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js",
@@ -45,164 +45,8 @@
   }
   </script>
   <link rel="icon" href="../assets/images/orphe_symbol_black.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="../assets/site.css">
   <style>
-    @font-face {
-      font-family: "Roboto";
-      font-weight: 300;
-      src: url("../assets/fonts/Roboto/Roboto-Light.ttf") format("truetype");
-    }
-
-    @font-face {
-      font-family: "Roboto";
-      font-weight: 400;
-      src: url("../assets/fonts/Roboto/Roboto-Regular.ttf") format("truetype");
-    }
-
-    @font-face {
-      font-family: "Roboto";
-      font-weight: 700;
-      src: url("../assets/fonts/Roboto/Roboto-Bold.ttf") format("truetype");
-    }
-
-    :root {
-      color-scheme: light;
-      --ink: #151719;
-      --muted: #59636f;
-      --line: #dce2e8;
-      --paper: #ffffff;
-      --soft: #f4f7f9;
-      --charcoal: #101417;
-      --cyan: #45e6e6;
-      --orange: #ff6040;
-      --green: #70c46f;
-      --blue: #3b6ea8;
-      --max: 1160px;
-    }
-
-    * {
-      box-sizing: border-box;
-    }
-
-    html {
-      scroll-behavior: smooth;
-    }
-
-    body {
-      margin: 0;
-      color: var(--ink);
-      background: var(--paper);
-      font-family: "Roboto", Arial, sans-serif;
-      font-size: 16px;
-      font-weight: 300;
-      line-height: 1.6;
-      letter-spacing: 0;
-      overflow-x: hidden;
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    img,
-    video {
-      max-width: 100%;
-      display: block;
-    }
-
-    main {
-      overflow: hidden;
-    }
-
-    code,
-    pre {
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    }
-
-    .site-header {
-      position: sticky;
-      top: 0;
-      z-index: 20;
-      background: rgba(255, 255, 255, 0.94);
-      border-bottom: 1px solid rgba(16, 20, 23, 0.08);
-      backdrop-filter: blur(10px);
-    }
-
-    .nav {
-      width: min(100% - 32px, var(--max));
-      min-height: 72px;
-      margin: 0 auto;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 24px;
-    }
-
-    .brand {
-      display: inline-flex;
-      align-items: center;
-      gap: 12px;
-      font-weight: 700;
-      white-space: nowrap;
-    }
-
-    .brand img {
-      width: 111px;
-      height: auto;
-    }
-
-    .nav-links {
-      display: flex;
-      align-items: center;
-      gap: 22px;
-      color: #37414c;
-      font-size: 14px;
-      font-weight: 400;
-    }
-
-    .nav-links a {
-      padding: 8px 0;
-      border-bottom: 2px solid transparent;
-    }
-
-    .nav-links a:hover {
-      border-color: var(--cyan);
-    }
-
-    .language-switch {
-      display: inline-flex;
-      align-items: center;
-      gap: 2px;
-      padding: 3px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: #f7fafb;
-    }
-
-    .language-switch button {
-      min-width: 44px;
-      min-height: 30px;
-      padding: 5px 10px;
-      border: 0;
-      border-radius: 999px;
-      color: #4d5964;
-      background: transparent;
-      font: inherit;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-    }
-
-    .language-switch button.active {
-      color: #051314;
-      background: var(--cyan);
-    }
-
-    .language-switch button:focus-visible {
-      outline: 2px solid var(--orange);
-      outline-offset: 2px;
-    }
-
     .hero {
       position: relative;
       min-height: 680px;
@@ -243,30 +87,6 @@
       gap: 42px;
     }
 
-    .eyebrow {
-      margin: 0 0 16px;
-      color: var(--cyan);
-      font-size: 13px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    h1,
-    h2,
-    h3,
-    p {
-      margin-top: 0;
-      overflow-wrap: break-word;
-    }
-
-    h1 {
-      max-width: 760px;
-      margin-bottom: 20px;
-      font-size: 64px;
-      line-height: 1.03;
-      font-weight: 700;
-    }
-
     .hero-copy {
       max-width: 780px;
       margin-bottom: 28px;
@@ -278,50 +98,6 @@
 
     .hero-copy span {
       display: block;
-    }
-
-    .hero-actions,
-    .section-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
-
-    .button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      max-width: 100%;
-      min-height: 44px;
-      padding: 10px 18px;
-      border: 1px solid transparent;
-      border-radius: 999px;
-      font-size: 14px;
-      font-weight: 700;
-      line-height: 1.2;
-      text-align: center;
-    }
-
-    .button.primary {
-      background: var(--cyan);
-      color: #051314;
-    }
-
-    .button.secondary {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.42);
-      color: white;
-    }
-
-    .button.light {
-      background: var(--ink);
-      color: white;
-    }
-
-    .button.line {
-      border-color: var(--line);
-      color: var(--ink);
-      background: white;
     }
 
     .hero-facts {
@@ -349,53 +125,6 @@
     .hero-fact span {
       color: rgba(255, 255, 255, 0.78);
       font-size: 13px;
-    }
-
-    .section {
-      padding: 88px 0;
-    }
-
-    .section.alt {
-      background: var(--soft);
-    }
-
-    .section.dark {
-      background: var(--charcoal);
-      color: white;
-    }
-
-    .section-inner {
-      width: min(100% - 32px, var(--max));
-      margin: 0 auto;
-    }
-
-    .section-head {
-      max-width: 760px;
-      margin-bottom: 38px;
-    }
-
-    h2 {
-      margin-bottom: 16px;
-      font-size: 40px;
-      line-height: 1.15;
-      font-weight: 700;
-    }
-
-    h3 {
-      margin-bottom: 10px;
-      font-size: 20px;
-      line-height: 1.3;
-      font-weight: 700;
-    }
-
-    .lead {
-      color: var(--muted);
-      font-size: 18px;
-      line-height: 1.8;
-    }
-
-    .dark .lead {
-      color: rgba(255, 255, 255, 0.74);
     }
 
     .feature-list {
@@ -509,26 +238,6 @@
       font-size: 14px;
     }
 
-    .source-links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      margin-top: 20px;
-    }
-
-    .source-links a {
-      display: inline-flex;
-      align-items: center;
-      min-height: 38px;
-      padding: 8px 14px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      background: white;
-      color: #24303a;
-      font-size: 13px;
-      font-weight: 700;
-    }
-
     .award-grid {
       display: grid;
       grid-template-columns: minmax(280px, 0.74fr) minmax(0, 1.26fr);
@@ -563,37 +272,6 @@
       display: grid;
       grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 16px;
-    }
-
-    .tile {
-      min-height: 210px;
-      padding: 24px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: white;
-    }
-
-    .tile .tag {
-      display: inline-flex;
-      margin-bottom: 22px;
-      color: var(--orange);
-      font-size: 12px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-
-    .tile p {
-      margin-bottom: 0;
-      color: var(--muted);
-    }
-
-    .dark .tile {
-      background: #181d21;
-      border-color: rgba(255, 255, 255, 0.12);
-    }
-
-    .dark .tile p {
-      color: rgba(255, 255, 255, 0.7);
     }
 
     .quick-start {
@@ -722,54 +400,66 @@
       color: rgba(255, 255, 255, 0.75);
     }
 
-    footer {
-      padding: 34px 0;
-      color: #697580;
-      background: white;
-      font-size: 14px;
-    }
-
-    .footer-inner {
-      width: min(100% - 32px, var(--max));
-      margin: 0 auto;
-      display: flex;
+    .sample-showcase {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+      gap: 48px;
       align-items: center;
-      justify-content: space-between;
-      gap: 18px;
     }
 
-    .footer-links {
-      display: flex;
-      gap: 18px;
-      flex-wrap: wrap;
+    .sample-terms {
+      margin: 14px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .sample-terms a {
+      color: var(--ink);
+      text-decoration: underline;
+    }
+
+    .sample-posters {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .sample-posters a {
+      position: relative;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #10151a;
+      transition: transform 160ms ease, box-shadow 160ms ease;
+    }
+
+    .sample-posters a:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 18px 40px rgba(15, 28, 34, 0.12);
+    }
+
+    .sample-posters img {
+      width: 100%;
+      height: auto;
+      aspect-ratio: 9 / 16;
+      object-fit: cover;
+      object-position: 50% 55%;
+    }
+
+    .sample-posters span {
+      position: absolute;
+      inset: auto 0 0;
+      padding: 28px 10px 10px;
+      color: white;
+      background: linear-gradient(transparent, rgba(8, 11, 13, 0.78));
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.3;
     }
 
     @media (max-width: 980px) {
-      .nav {
-        align-items: flex-start;
-        padding: 14px 0;
-        flex-direction: column;
-        gap: 10px;
-      }
-
-      .nav-links {
-        width: 100%;
-        overflow-x: auto;
-        gap: 18px;
-        padding-bottom: 2px;
-      }
-
       .hero,
       .hero-inner {
         min-height: 600px;
-      }
-
-      h1 {
-        font-size: 48px;
-      }
-
-      h2 {
-        font-size: 32px;
       }
 
       .hero-facts,
@@ -781,7 +471,8 @@
       .product-showcase,
       .award-grid,
       .quick-start,
-      .example-grid {
+      .example-grid,
+      .sample-showcase {
         grid-template-columns: 1fr;
       }
 
@@ -791,22 +482,6 @@
     }
 
     @media (max-width: 620px) {
-      body {
-        font-size: 15px;
-      }
-
-      .nav {
-        width: min(100% - 24px, var(--max));
-      }
-
-      .brand {
-        font-size: 14px;
-      }
-
-      .brand img {
-        width: 97px;
-      }
-
       .hero,
       .hero-inner {
         min-height: 560px;
@@ -824,12 +499,7 @@
         max-width: calc(100vw - 24px);
       }
 
-      h1 {
-        font-size: 34px;
-      }
-
-      .hero-copy,
-      .lead {
+      .hero-copy {
         font-size: 16px;
       }
 
@@ -852,16 +522,11 @@
         min-height: 84px;
       }
 
-      .section {
-        padding: 62px 0;
+      .sample-posters {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
-      .section-inner {
-        width: min(100% - 24px, var(--max));
-      }
-
-      .notice,
-      .footer-inner {
+      .notice {
         flex-direction: column;
         align-items: flex-start;
       }
@@ -873,41 +538,7 @@
       }
     }
 
-    /* ---- ORPHE-CORE-INSOLE.js 追加分: デバイス識別（CORE = orange / INSOLE = cyan） ---- */
-    .device-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 14px;
-      padding: 6px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 700;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--ink);
-      background: white;
-      border: 1px solid var(--line);
-    }
-
-    .device-badge::before {
-      content: "";
-      width: 10px;
-      height: 10px;
-      border-radius: 50%;
-      background: var(--orange);
-    }
-
-    .device-badge.insole::before {
-      background: var(--cyan);
-    }
-
-    .dark .device-badge {
-      color: white;
-      background: rgba(255, 255, 255, 0.06);
-      border-color: rgba(255, 255, 255, 0.18);
-    }
-
+    /* ---- デバイス別の色（CORE = orange / INSOLE = cyan）。バッジ本体は assets/site.css ---- */
     .hero-fact.core strong,
     .tile.core .tag,
     .spec-item.core span,
@@ -939,24 +570,6 @@
 
     .data-group+.data-group {
       margin-top: 40px;
-    }
-
-    .data-group-head {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 14px;
-      margin-bottom: 16px;
-    }
-
-    .data-group-head h3 {
-      margin: 0;
-    }
-
-    .data-group-head p {
-      flex-basis: 100%;
-      margin: 0;
-      color: var(--muted);
     }
 
     .example-group+.example-group {
@@ -1041,6 +654,7 @@
         <a href="#about" data-i18n="navAbout">About</a>
         <a href="#product" data-i18n="navProduct">Devices</a>
         <a href="#data" data-i18n="navData">Data</a>
+        <a href="sample-data/" data-i18n="navSampleData">Sample data</a>
         <a href="#quick-start" data-i18n="navQuickStart">Quick start</a>
         <a href="#examples" data-i18n="navExamples">Examples</a>
         <a href="#migration" data-i18n="navMigration">Migration</a>
@@ -1271,7 +885,7 @@
             <div class="tile insole">
               <span class="tag">on('press' | 'converted_press')</span>
               <h3 data-i18n="insoleDataPressureTitle">Pressure values</h3>
-              <p data-i18n="insoleDataPressureBody">Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise a fixed formula.</p>
+              <p data-i18n="insoleDataPressureBody">Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise per-channel default coefficients.</p>
             </div>
             <div class="tile insole">
               <span class="tag">on('converted_acc')</span>
@@ -1333,9 +947,42 @@
             <div class="tile both">
               <span class="tag">FifoRecorder</span>
               <h3 data-i18n="commonDataRecordTitle">Recording helpers</h3>
-              <p data-i18n="commonDataRecordBody">FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260905 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.</p>
+              <p data-i18n="commonDataRecordBody">FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260125 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.</p>
             </div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt" id="sample-data">
+      <div class="section-inner sample-showcase">
+        <div>
+          <p class="eyebrow" data-i18n="sampleEyebrow">Sample data</p>
+          <h2 data-i18n="sampleTitle">Walking and running data from real devices, with video.</h2>
+          <p class="lead" data-i18n="sampleLead">12 trials recorded with ORPHE INSOLE β: normal walking, 8 simulated pathological gaits and treadmill running at 3 speeds. Check the waveforms synchronized with video in the browser, then download CSV, ARKit skeleton and video all at once or per trial.</p>
+          <div class="section-actions">
+            <a class="button light" href="sample-data/" data-i18n="sampleOpen">Browse the sample data</a>
+            <a class="button line" href="https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js/releases/download/sample-data-v1/orphe-insole-sample-data.zip"><span data-i18n="sampleDownloadAll">Download all</span><span class="meta">ZIP · 50.9 MB</span></a>
+          </div>
+          <p class="sample-terms" data-i18n-html="sampleTerms">Please read the <a href="sample-data/#terms">terms of use</a> before downloading. The data may not be redistributed.</p>
+        </div>
+        <div class="sample-posters">
+          <a href="sample-data/#trial-01_normal_walking">
+            <img src="../sample-data/files/01_normal_walking/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialNormal">Normal walking</span>
+          </a>
+          <a href="sample-data/#trial-03_freezing">
+            <img src="../sample-data/files/03_freezing/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialFreezing">Freezing of gait</span>
+          </a>
+          <a href="sample-data/#trial-05_circumduction">
+            <img src="../sample-data/files/05_circumduction/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialCircumduction">Circumduction gait</span>
+          </a>
+          <a href="sample-data/#trial-12_running_12kmh">
+            <img src="../sample-data/files/12_running_12kmh/poster.jpg" alt="" loading="lazy" width="402" height="874">
+            <span data-i18n="sampleTrialRunning">Running 12 km/h</span>
+          </a>
         </div>
       </div>
     </section>
@@ -1404,7 +1051,7 @@ document.getElementById("connect").onclick = () =&gt;
 &lt;pre id="sensor-data"&gt;&lt;/pre&gt;
 &lt;pre id="pressure-data"&gt;&lt;/pre&gt;
 
-&lt;script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.1/dist/browser/orphe-core-insole.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.3.0/dist/browser/orphe-core-insole.js"&gt;&lt;/script&gt;
 &lt;script&gt;
   const { OrpheCoreInsole } = OrpheCoreInsoleJS;
   const ble = new OrpheCoreInsole();
@@ -1547,7 +1194,7 @@ document.getElementById("connect").onclick = () =&gt;
                 <span data-i18n="exampleCalibratedPressureTag">Load in newtons</span>
                 <div>
                   <h3>Calibrated Pressure</h3>
-                  <p data-i18n="exampleCalibratedPressureBody">Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise a fixed conversion formula.</p>
+                  <p data-i18n="exampleCalibratedPressureBody">Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise per-channel default coefficients.</p>
                 </div>
                 <strong data-i18n="exampleCalibratedPressureCta">Open load chart</strong>
               </div>
@@ -1813,6 +1460,7 @@ document.getElementById("connect").onclick = () =&gt;
         navAbout: "About",
         navProduct: "Devices",
         navData: "Data",
+        navSampleData: "Sample data",
         navQuickStart: "Quick start",
         navExamples: "Examples",
         navMigration: "Migration",
@@ -1893,7 +1541,7 @@ document.getElementById("connect").onclick = () =&gt;
         insoleDataTitle: "Pressure, motion, and orientation",
         insoleDataBody: "The real-time sensor stream uses <code>SENSOR_VALUES</code>; <code>streamingMode</code> 1 / 3 / 4 selects its fields. Gait analysis and FIFO recording use separate acquisition paths.",
         insoleDataPressureTitle: "Pressure values",
-        insoleDataPressureBody: "Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise a fixed formula.",
+        insoleDataPressureBody: "Six raw pressure channels per foot and load in newtons. Conversion uses individual calibration coefficients when available, otherwise per-channel default coefficients.",
         insoleDataAccTitle: "Acceleration",
         insoleDataAccBody: "Converted XYZ acceleration for movement intensity, step timing, and interaction design.",
         insoleDataGyroTitle: "Angular velocity",
@@ -1909,11 +1557,21 @@ document.getElementById("connect").onclick = () =&gt;
         commonDataLifecycleTitle: "Lifecycle events",
         commonDataLifecycleBody: "Connect, disconnect, errors, and reconnect progress. Subscribe as many times as you like; each call returns an unsubscribe function.",
         commonDataRecordTitle: "Recording helpers",
-        commonDataRecordBody: "FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260905 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.",
+        commonDataRecordBody: "FIFO retrieves buffered samples to recover gaps and exports CSV. Requires CORE firmware dated 20260125 or later, or INSOLE firmware dated 20260510 or later. Unrecoverable loss is reported via onDataLoss; stopOnLoss defaults to false. Unknown firmware is not filtered, so availability is unconfirmed.",
         insoleDataGaitTitle: "INSOLE gait analysis",
         insoleDataGaitBody: "InsoleGait records per-step gait rows from INSOLE and exports CSV.",
         insoleDataSimTitle: "Simulator",
         insoleDataSimBody: "Develop without hardware: a virtual INSOLE that goes through the same parsing path as a real device.",
+        sampleEyebrow: "Sample data",
+        sampleTitle: "Walking and running data from real devices, with video.",
+        sampleLead: "12 trials recorded with ORPHE INSOLE β: normal walking, 8 simulated pathological gaits and treadmill running at 3 speeds. Check the waveforms synchronized with video in the browser, then download CSV, ARKit skeleton and video all at once or per trial.",
+        sampleOpen: "Browse the sample data",
+        sampleDownloadAll: "Download all",
+        sampleTerms: "Please read the <a href=\"sample-data/#terms\">terms of use</a> before downloading. The data may not be redistributed.",
+        sampleTrialNormal: "Normal walking",
+        sampleTrialFreezing: "Freezing of gait",
+        sampleTrialCircumduction: "Circumduction gait",
+        sampleTrialRunning: "Running 12 km/h",
         quickEyebrow: "Quick start",
         quickTitle: "Connect either device and print live data.",
         quickLead: "Serve this page over HTTPS or localhost in a Web Bluetooth-capable browser. Load the CDN build and get <code>OrpheCoreInsole</code> from <code>OrpheCoreInsoleJS</code>. With no profile specified, the chooser lists both CORE and INSOLE and detects the selected type.",
@@ -1961,7 +1619,7 @@ document.getElementById("connect").onclick = () =&gt;
         exampleGaitReportBody: "Record 20 steps per foot and build a live-updating gait report with mean ± SD, left/right asymmetry, variability, and foot-strike breakdown.",
         exampleGaitReportCta: "Open gait report",
         exampleCalibratedPressureTag: "Load in newtons",
-        exampleCalibratedPressureBody: "Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise a fixed conversion formula.",
+        exampleCalibratedPressureBody: "Charts six pressure channels as load in newtons. Uses individual calibration coefficients read on connect when available, otherwise per-channel default coefficients.",
         exampleCalibratedPressureCta: "Open load chart",
         exampleFifoGuideTag: "Buffered recording",
         exampleFifoGuideBody: "Start here for FIFO: how it differs from realtime, why the device buffer holds about 30 seconds, and how to check serial continuity before exporting CSV.",
@@ -2046,6 +1704,7 @@ document.getElementById("connect").onclick = () =&gt;
         navAbout: "概要",
         navProduct: "製品",
         navData: "取得データ",
+        navSampleData: "サンプルデータ",
         navQuickStart: "クイックスタート",
         navExamples: "サンプル",
         navMigration: "移行",
@@ -2126,7 +1785,7 @@ document.getElementById("connect").onclick = () =&gt;
         insoleDataTitle: "圧力、モーション、姿勢",
         insoleDataBody: "リアルタイムセンサーストリームは <code>SENSOR_VALUES</code> を使い、<code>streamingMode</code> 1 / 3 / 4 で届くフィールドを選びます。歩容解析・FIFO収録は別の取得方式です。",
         insoleDataPressureTitle: "圧力値",
-        insoleDataPressureBody: "片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合は固定式を使います。",
+        insoleDataPressureBody: "片足6chの生の圧力値とニュートン換算した荷重。利用可能な個体別校正係数で換算し、係数を利用できない場合はチャンネルごとの既定係数を使います。",
         insoleDataAccTitle: "加速度",
         insoleDataAccBody: "換算済みのXYZ加速度。動きの強さ、ステップのタイミング、インタラクション設計に。",
         insoleDataGyroTitle: "角速度",
@@ -2142,11 +1801,21 @@ document.getElementById("connect").onclick = () =&gt;
         commonDataLifecycleTitle: "ライフサイクルイベント",
         commonDataLifecycleBody: "接続、切断、エラー、再接続の進行。何個でも購読でき、各呼び出しは解除関数を返します。",
         commonDataRecordTitle: "収録ヘルパー",
-        commonDataRecordBody: "FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260905以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。",
+        commonDataRecordBody: "FIFOはバッファ再取得で欠損を回復し、CSVを出力します。COREは20260125以降、INSOLEは20260510以降のFWが必要です。回復不能な欠損はonDataLossで通知し、stopOnLossの既定はfalseです。FW不明時は候補から除外されないため、対応は未確定です。",
         insoleDataGaitTitle: "INSOLEの歩容解析",
         insoleDataGaitBody: "InsoleGaitでINSOLEの1歩ごとの歩容行を記録し、CSVを出力できます。",
         insoleDataSimTitle: "シミュレータ",
         insoleDataSimBody: "実機なしで開発できます。実機と同じパース経路を通る仮想INSOLEです。",
+        sampleEyebrow: "サンプルデータ",
+        sampleTitle: "実機で記録した歩行・走行データを、動画と一緒に。",
+        sampleLead: "ORPHE INSOLE β で記録した、通常歩行・病的歩行の模擬8種・トレッドミル走行3速度の12試技です。動画と同期した波形をブラウザで確かめてから、CSV・ARKit骨格・動画をまとめて、または試技ごとにダウンロードできます。",
+        sampleOpen: "サンプルデータを見る",
+        sampleDownloadAll: "すべてダウンロード",
+        sampleTerms: "ダウンロードする前に<a href=\"sample-data/#terms\">利用条件</a>をご確認ください。データの再配布はできません。",
+        sampleTrialNormal: "通常歩行",
+        sampleTrialFreezing: "すくみ足",
+        sampleTrialCircumduction: "ぶん回し歩行",
+        sampleTrialRunning: "走行 12 km/h",
         quickEyebrow: "クイックスタート",
         quickTitle: "どちらのデバイスでも接続して、ライブデータを表示する。",
         quickLead: "Web Bluetooth対応ブラウザで、HTTPSまたはlocalhostから開いてください。CDNのビルドを読み込み、<code>OrpheCoreInsoleJS</code> から <code>OrpheCoreInsole</code> を取り出します。プロファイルを省略すると接続ダイアログにCOREとINSOLEの両方が出て、選んだデバイスを自動判別します。",
@@ -2194,7 +1863,7 @@ document.getElementById("connect").onclick = () =&gt;
         exampleGaitReportBody: "片足20歩を記録し、平均±SD、左右非対称性、ばらつき、接地パターン内訳のレポートをリアルタイムに作ります。",
         exampleGaitReportCta: "歩容レポートを開く",
         exampleCalibratedPressureTag: "ニュートン換算",
-        exampleCalibratedPressureBody: "6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合は固定式で換算します。",
+        exampleCalibratedPressureBody: "6chの圧力をニュートン単位の荷重でグラフ化します。接続時に取得した個体別校正係数を利用できる場合はその係数を使い、利用できない場合はチャンネルごとの既定係数で換算します。",
         exampleCalibratedPressureCta: "荷重チャートを開く",
         exampleFifoGuideTag: "バッファ収録",
         exampleFifoGuideBody: "FIFOの入口。リアルタイムとの違い、デバイスバッファが約30秒である理由、CSV出力前のシリアル連続性の確認方法を学べます。",

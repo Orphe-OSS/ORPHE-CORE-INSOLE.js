@@ -79,6 +79,7 @@ export type {
   InsoleParsedSample,
   InsolePress,
   InsoleProfileOptions,
+  PressureCalibrationFetchOptions,
   InsoleSampleStamp,
   InsoleSensorFields,
   InsoleSensorSample,
@@ -89,11 +90,14 @@ export {
   INSOLE_FIFO_MIN_RELEASE_DATE,
   INSOLE_MODES,
   INSOLE_PRESSURE_CALIBRATION_MIN_RELEASE_DATE,
+  INSOLE_STEP_ANALYSIS_STEP_ONLY_MIN_RELEASE_DATE,
   INSOLE_STREAMING_MODES,
   insoleStreamingModeOf,
 } from './modes/insole.ts';
 export {
+  DEFAULT_PRESSURE_COEFFICIENTS,
   applyPressureCalibration,
+  defaultPressureToNewton,
   legacyPressureToNewton,
   pressureToNewton,
 } from './protocol/pressure-calibration.ts';
@@ -129,6 +133,7 @@ export type {
   GaitOverviewPacket,
   GaitPacket,
   GaitPronationPacket,
+  GaitStepPacket,
   GaitStridePacket,
 } from './gait/packet.ts';
 export { GAIT_TYPES, STRIDE_DIRECTIONS } from './gait/packet.ts';
@@ -174,7 +179,7 @@ export type {
 export { Orphe } from './compat/orphe-core.ts';
 export type { CoreBeginOptions, LegacyCoreDeviceInformation, OrpheInjections } from './compat/orphe-core.ts';
 export { OrpheInsole } from './compat/orphe-insole.ts';
-export type { InsoleBeginOptions, InsoleSensorDataEvent } from './compat/orphe-insole.ts';
+export type { InsoleBeginOptions, InsolePressureCalibration, InsoleSensorDataEvent } from './compat/orphe-insole.ts';
 export { OrpheInsoleFifo, OrpheInsoleGait } from './compat/insole-modules.ts';
 export { LegacyDevice } from './compat/legacy-device.ts';
 export type {

@@ -36,9 +36,9 @@ jsDelivr から配信しています。`@v<version>` には [リリースタグ]
 
 ```html
 <!-- SDK 本体。公開 API はグローバル OrpheCoreInsoleJS に入る -->
-<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.1/dist/browser/orphe-core-insole.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.3.0/dist/browser/orphe-core-insole.js"></script>
 <!-- 接続 UI（buildCoreToolkit / buildInsoleToolkit）を使う場合のみ。SDK 本体の後に読み込む -->
-<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.2.1/dist/browser/orphe-core-insole-toolkit.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/Orphe-OSS/ORPHE-CORE-INSOLE.js@v0.3.0/dist/browser/orphe-core-insole-toolkit.js"></script>
 <script>
   const { OrpheCoreInsole, coreProfile } = OrpheCoreInsoleJS;
   const ble = new OrpheCoreInsole({ profile: coreProfile() });
@@ -168,13 +168,41 @@ INSOLEのリアルタイムセンサー配信は次の仕様です。歩容解�
 | 3 | 加速度・角速度・圧力（クォータニオンなし） | 200Hz | 50Hz |
 | 4（既定） | クォータニオン・加速度・角速度・圧力 | 100Hz | 50Hz |
 
-`converted_press` は個体別校正係数を利用できる場合、その係数でN換算します。FWが20260428より古い／不明、係数取得を無効化、取得失敗、係数が未書き込みの場合は固定式にフォールバックします。
+#### 圧力の荷重換算（`converted_press`）と個体別校正係数
+
+`press` は ADC 生値、`converted_press` は荷重 [N] です。FW が 20260428 以降なら、`begin()` の中で 6ch ぶんの個体別校正係数を取得し、`ble.profile.pressure_calibrations` にセンサー番号順で保持します。取得は `begin()` の完了までに終わります。
+
+- 係数が使えない場合は、既定係数（ch ごとの 4 次多項式）で換算します。ORPHE-INSOLE.js と insole_client（e342620）と同じ値です。次の場合が該当します。
+  - FW が古い、または不明
+  - `insoleProfile({ pressureCalibration: { fetch: false } })` で取得を無効にした
+  - 応答がない
+  - 係数が未書き込み（func 0・係数がすべて 1.0）
+  - 換算結果が非有限
+- 係数が使えない ch は、`pressure_calibrations` の要素が `null` になります。1ch も取れなければ配列自体が `null` です。
+- 換算式は、func 0 が `c1·exp(c2·x) + c3`、func 1 が `c1·x⁴ + c2·x³ + c3·x² + c4·x + c5` です（x は ADC 生値）。負の結果は 0 にします。
+- 接続中は `ble.commands.fetchPressureCalibrations()` で取り直せます。
+  - 例外は出さず、`onError` も呼びません。取れなければ `null` を返し、既定係数で換算します。
+  - 全 ch が揃うまで、前の値を使い続けます。
+  - mode 1 で計測中なら、取得の間だけ mode 4 にしてから元に戻します。
+- FIFO の CSV も、同じ係数と既定係数で N に換算します。
+- 換算式は `pressureToNewton(raw, calibration, sensorIndex)` / `defaultPressureToNewton(raw, sensorIndex)` / `DEFAULT_PRESSURE_COEFFICIENTS` として export しています。
+
+```ts
+ble.on('converted_press', (press) => console.log(press.values));        // [N] × 6ch
+await ble.begin('SENSOR_VALUES', { streamingMode: 4 });
+console.log(ble.profile.pressure_calibrations);                          // [{ func, coefficients }, …] | null
+const calibrations = await ble.commands.fetchPressureCalibrations({ timeoutMs: 1000 }); // 取り直し
+```
+
+動作例は `example/calibrated-pressure.html` にあります。
 
 ### FIFO バッファ収録
 
-COREは20260905以降、INSOLEは20260510以降のFWが必要です。既知の非対応FWでは開始を拒否します。FW情報が取得できない場合はモードを絞り込まないため、`availableModes` にFIFOがあっても対応確認済みとは限りません。
+COREは20260125以降、INSOLEは20260510以降のFWが必要です（COREの20260905より前のFWは蓄積数を返しませんが、収録できます）。既知の非対応FWでは開始を拒否します。FW情報が取得できない場合はモードを絞り込まないため、`availableModes` にFIFOがあっても対応確認済みとは限りません。
 
 バッファ再取得で欠損回復を試みますが、回復不能な欠損は `onDataLoss` で通知します。`stopOnLoss` の既定は `false` で収録を継続します。欠損時に停止したい場合は `new FifoRecorder(ble, { stopOnLoss: true })` としてください。
+
+INSOLEのFIFOデータパケットはFWによって2形式あり、自動で判別します。FW 20260924.1以降は1パケット8サンプル（200バイト）、それより前は4サンプル（104バイト）です。8サンプル形式ではシリアル番号の進みが約26/秒になり、CSVは1シリアルにつき8行になります。サンプル数や時間をシリアル数から換算するときは4を決め打ちせず、`fifo.framesPerPacket`（`onProgress` にも同名のフィールドがあります）を使ってください。追従遅れの上限は `fifo.ringCapacity` で分かります。1件も回収できないときは、届いた通知の内訳を `fifo.notifyStats` で確認できます。
 
 ```ts
 import { FifoRecorder } from 'orphe-core-insole';
@@ -201,6 +229,15 @@ await gait.start();
 await gait.stop();
 gait.download('gait.csv');
 ```
+
+STEP_ANALYSIS の送り方は INSOLE の FW によって異なります。どちらのパケットも自動で判別してデコードし、同じ `GaitRow` で `onGait` に渡します。
+
+| FW | 送り方 |
+|---|---|
+| 20260924 より前 | 1 歩ぶんを 3 種のサブパケット（header 51, 20byte）に分けて送る。motion（`onMotion`）も常時届く |
+| 20260924 以降 | Step 検出時に 1 歩ぶんを 1 パケット（header 59, 51byte）で送る。motion は無く、静止中は通知が来ない。歩行タイプ `other` が届くことがある |
+
+`gait.sendsOnlyOnSteps` が `true`（INSOLE かつ FW 20260924 以降）のときは、静止中に通知が来なくても故障ではありません。`InsoleToolkitSession` はこの場合に到着確認を省き、`onDiagnostic` へ `liveness-deferred` を出します。
 
 ### 自動再接続
 
@@ -233,7 +270,7 @@ off();
 | プロファイル | コマンド |
 |---|---|
 | CORE | `setLED(on, pattern)` `setLEDBrightness(0..255)` `setRange({ acc, gyro })` `setMountPosition(0..3)` `resetAttitude()` `resetAnalysisLogs()` `readDeviceInformation()` `writeDeviceInformation(settings)` |
-| INSOLE | `setDataStreamingMode(1 \| 3 \| 4)` `resetAnalysisLogs()` `readDeviceInformation()` |
+| INSOLE | `setDataStreamingMode(1 \| 3 \| 4)` `resetAnalysisLogs()` `readDeviceInformation()` `fetchPressureCalibrations({ timeoutMs, retries })` |
 
 ```ts
 await ble.commands.setLED(true, 2);
@@ -313,6 +350,7 @@ ORPHE-CORE.js の `Orphe` と ORPHE-INSOLE.js の `OrpheInsole` は、互換ク�
 | `setLED` / `resetMotionSensorAttitude` / `resetAnalysisLogs` / `getDeviceInformation` / `setDeviceInformation` | `ble.commands.setLED` / `resetAttitude` / `resetAnalysisLogs` / `readDeviceInformation` / `writeDeviceInformation` |
 | `setDataStreamingMode(m)`（INSOLE） | `ble.commands.setDataStreamingMode(m)` |
 | `ble.device_information` / `ble.streaming_mode` | `ble.profile.device_information` / `ble.profile.streaming_mode` |
+| `ble.pressure_calibration` / `getPressureCalibration()`（INSOLE） | `ble.profile.pressure_calibrations`（要素は `{ func, coefficients }`）/ `ble.commands.fetchPressureCalibrations()` |
 | `ble.notification_type` | `ble.lastBeginType` |
 | `read` / `write` / `startNotify` / `stopNotify` / `bluetoothDevice` | `ble.transport.read` など / `ble.transport.device` |
 | `forgetLastBluetoothDevice()` | `ble.transport.forgetRememberedDevice()` |
@@ -320,6 +358,8 @@ ORPHE-CORE.js の `Orphe` と ORPHE-INSOLE.js の `OrpheInsole` は、互換ク�
 | `OrpheInsoleFifo` / `OrpheInsoleGait` | `FifoRecorder` / `InsoleGait` |
 | `OrpheInsoleSimulator` | `createInsoleSimulator()` |
 | `begin(…, { useSharedBridge: true })` / `isBridgeSecondary` | 同じオプション / `ble.sharedBridgeRole === 'secondary'` |
+
+互換クラス `OrpheInsole` の `pressure_calibration` と `getPressureCalibration({ timeoutMs })` は、ORPHE-INSOLE.js と同じ `{ sensor_index, func, coeffs }` の形で返します。違いが 1 点あります。ORPHE-INSOLE.js は 6ch 揃わなければ `null` ですが、こちらは使える ch だけを返し、欠けた ch を `null` 要素にします。
 
 v0.2.0 から toolkit の `cores` / `insoles` / `orpheCore` は `OrpheCoreInsole` になりました。
 toolkit を使う既存コードで `cores[0].gotAcc = …` の書き方を続ける場合は、`attachLegacyCallbacks(cores[0])` を 1 回呼んでください。

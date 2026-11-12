@@ -169,6 +169,8 @@ export interface InsoleSessionFifo {
 /** Gait（STEP_ANALYSIS）モジュール（OrpheInsoleGait） */
 export interface InsoleSessionGait {
   isRunning?: boolean;
+  /** FW が STEP_ANALYSIS を Step 検出時だけ送るなら true（静止中は notify が来ない） */
+  readonly sendsOnlyOnSteps?: boolean;
   start(): Promise<unknown>;
   stop(): Promise<unknown>;
   refreshSubscription?(): Promise<unknown>;
@@ -1111,6 +1113,8 @@ export class InsoleToolkitSession {
   /**
    * startNotifications() の resolve だけで成功扱いにせず、実際の有効 packet 到着を確認する。
    * 無通知時は streaming mode を再適用して STEP_ANALYSIS を再購読する。
+   * Step 検出時だけ送る FW（INSOLE FW 20260924 以降）は静止中に notify が来ないのが正常なため、
+   * 到着確認をせず onDiagnostic('liveness-deferred') だけ出す。
    */
   private async verifyGaitLiveness(beforeDiagnostics: unknown, context: string): Promise<boolean> {
     if (
@@ -1118,6 +1122,10 @@ export class InsoleToolkitSession {
       || !this.gait
       || typeof this.gait.waitForPacket !== 'function'
     ) return true;
+    if (this.gait.sendsOnlyOnSteps) {
+      this.emitGaitDiagnostic('liveness-deferred', { context, reason: 'step-only-firmware' });
+      return true;
+    }
 
     const before = beforeDiagnostics as GaitCounters | null;
     const afterValidPackets = Number(before?.validPackets || 0);

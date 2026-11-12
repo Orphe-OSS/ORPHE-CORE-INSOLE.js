@@ -12,9 +12,13 @@
  *   [0x0B, 0x02, <30×(sMSB,sLSB,cMSB,cLSB)>]  データ範囲要求（30組までpad）
  *   [0x0B, 0x03] / 0x04 / 0x06        全消去 / モニタ開始 / モニタ停止（ACK: 0x35 0x03/04/06）
  *   no-data 応答:  0x35 0x02 start(2) count(2)
- *   データパケット: 0x36 serial(2) ts(5) + サンプル。どちらも 104 bytes で、先頭のサンプルほど新しい
- *     INSOLE: 4×24B(gyro3,acc3,press6)
- *     CORE:   8×12B(gyro3,acc3)。圧力なし
+ *   データパケット: header serial(2) ts(5) + サンプル。先頭のサンプルほど新しい
+ *     INSOLE（従来 FW）:            0x36 / 104 bytes / 4×24B(gyro3,acc3,press6)
+ *     INSOLE（FW 20260924.1 以降）: 0x3A / 200 bytes / 8×24B(gyro3,acc3,press6)
+ *     CORE:                         0x36 / 104 bytes / 8×12B(gyro3,acc3)。圧力なし
+ *   INSOLE の 2 形式はヘッダと長さから自動判別する（{@link fifoPacketLayout}）。8 フレーム形式は
+ *   1 serial が表す時間が 2 倍（約 38.5 ms）なので serial の進みは約 26 packet/s、FW リングは 780 packet。
+ *   サンプル数や時間を serial 数から換算するときは 4 を決め打ちせず `framesPerPacket` を使うこと。
  *
  * 注意: FIFO モードはジャイロ・加速度（INSOLE は 6ch 圧力も）のみでクォータニオンを含まない。
  *
@@ -30,7 +34,7 @@
  * LEGACY_CSV_FRAME_INTERVAL_MS（5ms/frame）のまま据え置く。CSV の timestamp から
  * dt を逆算しないこと。
  */
-import { pressureToNewton } from '../protocol/pressure-calibration.ts';
+import { defaultPressureToNewton, pressureToNewton } from '../protocol/pressure-calibration.ts';
 import type { PressureCalibration } from '../protocol/pressure-calibration.ts';
 import { DEFAULT_ACC_RANGE, DEFAULT_GYRO_RANGE, GYRO_DPS_PER_LSB_PER_RANGE, gyroRawToDps, imuRangeFromSettings } from '../protocol/imu-range.ts';
 import type { ImuRange } from '../protocol/imu-range.ts';
@@ -54,24 +58,38 @@ export const SUB_START_MONITOR = 0x04;
 export const SUB_STOP_MONITOR = 0x06;
 
 export const RESP_STATUS = 0x35; // コマンド応答/no-data のヘッダ
-export const RESP_DATA = 0x36; // センサーデータパケットのヘッダ
+export const RESP_DATA = 0x36; // センサーデータパケットのヘッダ（104 byte。INSOLE 4 フレーム / CORE 8 フレーム）
+/** INSOLE FW 20260924.1 以降のデータパケットのヘッダ（200 byte・8 フレーム）。 */
+export const RESP_DATA_8 = 0x3a;
 export const RESP_NO_DATA_SUB = 0x02;
 
 /** 1 回のデータ要求 `[0x0B,0x02,...]` に載せられる (start,count) 組の最大数。 */
 export const FIFO_RE_REQUEST_DATA_NUM = 30;
 export const MAX_DATA_NUMBER_REQUESTED_AT_ONCE = 200;
-/** 次ループへ持ち越す再要求シリアル数の上限。超えたぶんは回復不能ロスとして計上する。 */
-export const FIFO_MAX_CARRY_OVER_SERIALS = 100;
-/** FW 側リングバッファの保持件数の目安。これ以上追従が遅れると古いサンプルが上書きされる。 */
+/**
+ * 次ループへ持ち越す再要求シリアル数の上限。超えたぶんは回復不能ロスとして計上する。
+ * 旧値 100 は 8 フレーム形式（約 26 packet/s）だと約 3.8 秒ぶんの取りこぼしで溢れ、まだ FW リングに
+ * 残っていて再要求すれば回収できるぶんまで捨ててしまうため 600 にした
+ * （4 フレーム形式で約 12 秒、8 フレーム形式で約 23 秒ぶん）。
+ */
+export const FIFO_MAX_CARRY_OVER_SERIALS = 600;
+/**
+ * FW 側リングバッファの保持件数の目安。これ以上追従が遅れると古いサンプルが上書きされる。
+ * 104 byte 形式の値。形式別の値は {@link FifoLayout.ringCapacity}。
+ */
 export const FIFO_RING_BUFFER_CAPACITY = 1500;
+/** INSOLE 8 フレーム形式の保持件数の目安（FW リング 780 packet から余裕を取った値）。 */
+export const FIFO_RING_BUFFER_CAPACITY_8 = 750;
 // drainTimeoutMs は「無音がこれだけ続いたら諦める」idle 予算。データが届き続ける間は
 // 延長し、絶対上限（× CATCHUP_MAX_BUDGET_FACTOR）で打ち切る。
 export const DEFAULT_DRAIN_TIMEOUT_MS = 3000;
 /** 回収フェーズの絶対上限係数。`drainTimeoutMs × この値` を過ぎたら延長せず打ち切る。 */
 export const FIFO_CATCHUP_MAX_BUDGET_FACTOR = 10;
-export const NOTIFY_DATA_NUM = 4; // INSOLE の 1パケット内のフレーム数
+export const NOTIFY_DATA_NUM = 4; // INSOLE の 1パケット内のフレーム数（4 フレーム形式）
 export const NOTIFY_DATA_SIZE = 24; // INSOLE の 1フレームのバイト数
 export const DATA_PACKET_BYTE_LENGTH = 104;
+/** INSOLE 8 フレーム形式のデータパケット長（8 + 8×24）。 */
+export const DATA_PACKET_BYTE_LENGTH_8 = 200;
 
 /** FIFO データパケットのレイアウト。コマンドは共通で、1 パケットに入るサンプルの形だけがデバイスで違う。 */
 export interface FifoLayout {
@@ -81,16 +99,56 @@ export interface FifoLayout {
   readonly sampleSize: number;
   /** サンプルに 6ch 圧力が入るか */
   readonly hasPressure: boolean;
+  /** データパケットのヘッダ（先頭 1 byte） */
+  readonly header: number;
+  /** データパケットのバイト数 */
+  readonly byteLength: number;
+  /** 追従遅れ（lag）がこれを超えたぶんを回復不能として扱う上限 packet 数 */
+  readonly ringCapacity: number;
 }
 
-/** INSOLE: 24B（gyro3, acc3, press6）× 4 サンプル */
-export const INSOLE_FIFO_LAYOUT: FifoLayout = Object.freeze({ samples: NOTIFY_DATA_NUM, sampleSize: NOTIFY_DATA_SIZE, hasPressure: true });
+/** INSOLE（従来 FW）: 24B（gyro3, acc3, press6）× 4 サンプル */
+export const INSOLE_FIFO_LAYOUT: FifoLayout = Object.freeze({
+  samples: NOTIFY_DATA_NUM, sampleSize: NOTIFY_DATA_SIZE, hasPressure: true,
+  header: RESP_DATA, byteLength: DATA_PACKET_BYTE_LENGTH, ringCapacity: FIFO_RING_BUFFER_CAPACITY,
+});
+/** INSOLE（FW 20260924.1 以降）: 24B（gyro3, acc3, press6）× 8 サンプル */
+export const INSOLE_FIFO_LAYOUT_8: FifoLayout = Object.freeze({
+  samples: 8, sampleSize: NOTIFY_DATA_SIZE, hasPressure: true,
+  header: RESP_DATA_8, byteLength: DATA_PACKET_BYTE_LENGTH_8, ringCapacity: FIFO_RING_BUFFER_CAPACITY_8,
+});
 /** CORE: 12B（gyro3, acc3）× 8 サンプル */
-export const CORE_FIFO_LAYOUT: FifoLayout = Object.freeze({ samples: 8, sampleSize: 12, hasPressure: false });
+export const CORE_FIFO_LAYOUT: FifoLayout = Object.freeze({
+  samples: 8, sampleSize: 12, hasPressure: false,
+  header: RESP_DATA, byteLength: DATA_PACKET_BYTE_LENGTH, ringCapacity: FIFO_RING_BUFFER_CAPACITY,
+});
 
-/** プロファイル種別（`'insole'` / `'core'`）→ レイアウト。core 以外は INSOLE として扱う。 */
+/**
+ * プロファイル種別（`'insole'` / `'core'`）→ 104 byte 形式のレイアウト。core 以外は INSOLE として扱う。
+ * 受信したパケットの形式は {@link fifoPacketLayout} で判別すること（INSOLE は FW で 2 形式ある）。
+ */
 export function fifoLayoutFor(kind: string): FifoLayout {
   return kind === 'core' ? CORE_FIFO_LAYOUT : INSOLE_FIFO_LAYOUT;
+}
+
+/** データパケットのヘッダ（0x36 / 0x3A）なら true。 */
+export function isFifoDataHeader(header: number): boolean {
+  return header === RESP_DATA || header === RESP_DATA_8;
+}
+
+/**
+ * 受信したデータパケットのレイアウト。ヘッダと長さの両方が合うときだけ返す
+ * （ヘッダだけ合って長さが違うパケットを読むと範囲外参照になるため）。合わなければ null。
+ * 8 フレーム形式（0x3A）は INSOLE のみ。CORE は 104 byte 形式だけを受け付ける。
+ */
+export function fifoPacketLayout(dv: DataView | null | undefined, kind = 'insole'): FifoLayout | null {
+  if (!dv || dv.byteLength < 8) return null;
+  const header = dv.getUint8(0);
+  const candidates = kind === 'core' ? [CORE_FIFO_LAYOUT] : [INSOLE_FIFO_LAYOUT, INSOLE_FIFO_LAYOUT_8];
+  for (const layout of candidates) {
+    if (layout.header === header && layout.byteLength === dv.byteLength) return layout;
+  }
+  return null;
 }
 
 // IMU（LSM6DSOX）の実測 ODR（≈208Hz）。5ms/frame 仮定のままだとパケット内時間が
@@ -145,19 +203,9 @@ export function gyroToDps(msb: number, lsb: number, range: number = FIFO_DEFAULT
   return gyroRawToDps(binToInt(msb, lsb), range);
 }
 
-/** 圧力生値(ADC uint16) → N（固定校正多項式。n は 1..6） */
+/** 圧力生値(ADC uint16) → N（既定係数の ch ごとの多項式。n は 1..6、範囲外は 0） */
 export function pressureToN(x: number, n: number): number {
-  let y: number;
-  switch (n) {
-    case 1: y = 6.31278e-11 * x ** 4 - 2.33093e-07 * x ** 3 + 3.27825e-04 * x ** 2 - 1.63373e-01 * x + 2.25012e01; break;
-    case 2: y = 6.65168e-11 * x ** 4 - 2.10741e-07 * x ** 3 + 2.31937e-04 * x ** 2 - 7.10366e-02 * x + 6.97927e00; break;
-    case 3: y = 1.07646e-10 * x ** 4 - 3.85112e-07 * x ** 3 + 5.02384e-04 * x ** 2 - 2.37328e-01 * x + 3.18015e01; break;
-    case 4: y = 5.91156e-11 * x ** 4 - 1.81045e-07 * x ** 3 + 1.86644e-04 * x ** 2 - 4.46178e-02 * x + 3.10811e00; break;
-    case 5: y = 5.32573e-11 * x ** 4 - 1.68515e-07 * x ** 3 + 1.79518e-04 * x ** 2 - 4.66859e-02 * x + 3.71484e00; break;
-    case 6: y = 4.44324e-11 * x ** 4 - 1.09728e-07 * x ** 3 + 8.90389e-05 * x ** 2 + 3.82816e-03 * x - 4.46580e00; break;
-    default: y = 0;
-  }
-  return y < 0 ? 0 : y;
+  return defaultPressureToNewton(x, n - 1);
 }
 
 // ── シリアル番号ユーティリティ ───────────────────────────────────────
@@ -235,7 +283,7 @@ export function parseNoDataResponse(dv: DataView): [start: number, count: number
 
 /** データパケットならシリアル番号、そうでなければ null */
 export function extractSerialIfSensorPacket(dv: DataView): number | null {
-  if (dv.byteLength < 3 || dv.getUint8(0) !== RESP_DATA) return null;
+  if (dv.byteLength < 3 || !isFifoDataHeader(dv.getUint8(0))) return null;
   return dv.getUint16(1);
 }
 
@@ -308,11 +356,11 @@ function readFrame(dv: DataView, i: number, layout: FifoLayout, range: FifoRange
   };
 }
 
-/** FIFO の 1 サンプル（＝1 フレーム）。1 パケットに INSOLE は 4、CORE は 8 サンプル入る。 */
+/** FIFO の 1 サンプル（＝1 フレーム）。1 パケットに INSOLE は 4（FW 20260924.1 以降は 8）、CORE は 8 サンプル入る。 */
 export interface FifoSample {
   /** 由来パケットのシリアル番号 */
   serial_number: number;
-  /** パケット内のフレーム位置（古い順。INSOLE は 0..3、CORE は 0..7） */
+  /** パケット内のフレーム位置（古い順。INSOLE は 0..3（8 フレーム形式は 0..7）、CORE は 0..7） */
   packet_number: number;
   /** パケット基準時刻 + frame×FIFO_FRAME_INTERVAL_MS [ms]。dt 計算はこれを使うこと */
   t: number;
@@ -336,7 +384,7 @@ export interface FifoSample {
   } | null;
 }
 
-/** 1 データパケット（0x36）をデコードした結果。 */
+/** 1 データパケット（0x36 / 0x3A）をデコードした結果。 */
 export interface FifoPacket {
   /** パケットのシリアル番号 */
   serial: number;
@@ -347,12 +395,12 @@ export interface FifoPacket {
 }
 
 /**
- * 1データパケット(0x36) → サンプル配列（ライブ可視化用）。`kind` はプロファイル種別で、
- * INSOLE は 4、CORE は 8 フレーム。`range` は device information のレンジ（{@link fifoRangeFromDeviceInformation}）。
+ * 1データパケット(0x36 / 0x3A) → サンプル配列（ライブ可視化用）。`kind` はプロファイル種別で、
+ * INSOLE は 4（0x3A は 8）、CORE は 8 フレーム。形式はパケットから判別する。`range` は device information のレンジ（{@link fifoRangeFromDeviceInformation}）。
  * フレームは古い順（バイト列の末尾のフレームが基準、以降 +FIFO_FRAME_INTERVAL_MS）。出力もその順。
  */
 export function decodeFifoPacket(dv: DataView, kind = 'insole', range: FifoRange = FIFO_DEFAULT_RANGE): FifoPacket {
-  const layout = fifoLayoutFor(kind);
+  const layout = fifoPacketLayout(dv, kind) ?? fifoLayoutFor(kind);
   const serial = dv.getUint16(1);
   const baseMs = extractTimestampMs(dv);
   const samples: FifoSample[] = [];
@@ -380,7 +428,7 @@ function f4(v: number): string {
 }
 
 /**
- * 1データパケット → CSV の行（INSOLE は 4 行、CORE は 8 行で圧力の列なし）。timestamp 列は意図的に
+ * 1データパケット → CSV の行（INSOLE は 4 行（8 フレーム形式は 8 行）、CORE は 8 行で圧力の列なし）。timestamp 列は意図的に
  * FIFO_LEGACY_CSV_FRAME_INTERVAL_MS（5ms/frame）のまま据え置く（冒頭コメント参照）。
  */
 export function packetToCsvRows(
@@ -389,10 +437,9 @@ export function packetToCsvRows(
   kind = 'insole',
   range: FifoRange = FIFO_DEFAULT_RANGE
 ): string[] {
-  const layout = fifoLayoutFor(kind);
-  // 個体別係数があれば ch ごとにそれで N に換算し、なければ固定多項式
-  const toN = (raw: number, i: number): number =>
-    calibrations ? pressureToNewton(raw, calibrations[i]) : pressureToN(raw, i + 1);
+  const layout = fifoPacketLayout(dv, kind) ?? fifoLayoutFor(kind);
+  // 個体別係数があれば ch ごとにそれで N に換算し、無い ch は既定係数
+  const toN = (raw: number, i: number): number => pressureToNewton(raw, calibrations?.[i] ?? null, i);
   const serial = dv.getUint16(1);
   const h = dv.getUint8(3);
   const m = dv.getUint8(4);
@@ -428,7 +475,7 @@ export function rawStoreToCSV(
   entries.sort((a, b) => extractTimestampMs(a) - extractTimestampMs(b));
   const lines = [fifoLayoutFor(kind).hasPressure ? FIFO_CSV_HEADER : FIFO_CSV_HEADER_CORE];
   for (const dv of entries) {
-    if (dv.byteLength < 1 || dv.getUint8(0) !== RESP_DATA) continue;
+    if (!fifoPacketLayout(dv, kind)) continue;
     for (const row of packetToCsvRows(dv, calibrations, kind, range)) lines.push(row);
   }
   return lines.join('\n') + '\n';

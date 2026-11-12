@@ -1,6 +1,6 @@
 {
   "name": "orphe-core-insole",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "description": "Shared BLE transport layer for ORPHE CORE / ORPHE INSOLE JavaScript SDKs",
   "homepage": "https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js#readme",
@@ -22,14 +22,17 @@
     "example": "vite",
     "docs": "typedoc",
     "build:site": "node scripts/build-landing.mjs",
-    "check:site": "node scripts/build-landing.mjs --check"
+    "check:site": "node scripts/build-landing.mjs --check",
+    "sample-data:pack": "node scripts/sample-data.mjs pack",
+    "sample-data:site": "node scripts/sample-data.mjs site",
+    "sample-data:fetch": "node scripts/sample-data.mjs fetch"
   },
   "author": "Tetsuaki BABA and ORPHE Inc.",
   "license": "SEE LICENSE IN LICENSE.md",
   "devDependencies": {
     "@types/node": "^22.20.1",
-    "happy-dom": "^20.14.5",
+    "happy-dom": "^21.0.4",
     "typedoc": "^0.28.20",
-    "vite": "^8.2.2"
+    "vite": "^8.3.5"
   }
 }

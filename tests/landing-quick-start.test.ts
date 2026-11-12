@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { Window, type HTMLButtonElement } from 'happy-dom';
-import { buildLandingPages, LANGUAGES } from '../scripts/build-landing.mjs';
+import { buildLandingPages, outputFile, PAGES } from '../scripts/build-landing.mjs';
 import { OrpheCoreInsole } from '../src/device/orphe-core-insole.ts';
 import { autoProfile } from '../src/profiles/auto.ts';
 import { MemoryStorage, MockBluetooth } from './helpers/mock-bluetooth.ts';
@@ -23,7 +23,7 @@ for (const language of ['ja', 'en'] as const) {
       const window = new Window();
       try {
         const document = window.document;
-        document.documentElement.innerHTML = buildLandingPages().outputs[LANGUAGES[language].file]!;
+        document.documentElement.innerHTML = buildLandingPages().outputs[outputFile(PAGES[0]!, language)]!;
         const snippet = document.getElementById('quick-start-code')!.textContent;
         document.body.innerHTML = snippet;
         const script = document.body.querySelector('script:not([src])')!.textContent;

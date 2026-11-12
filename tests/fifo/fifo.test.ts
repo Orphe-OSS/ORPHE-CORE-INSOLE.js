@@ -8,6 +8,8 @@ import {
   FIFO_CSV_HEADER,
   FIFO_CSV_HEADER_CORE,
   FIFO_FRAME_INTERVAL_MS,
+  FIFO_MAX_CARRY_OVER_SERIALS,
+  INSOLE_FIFO_LAYOUT_8,
   accToG,
   buildRequestsFromSerials,
   calcExpectedSerials,
@@ -18,6 +20,7 @@ import {
   extractTimestampMs,
   FIFO_DEFAULT_RANGE,
   fifoLayoutFor,
+  fifoPacketLayout,
   fifoRangeFromDeviceInformation,
   gyroToDps,
   packetToCsvRows,
@@ -29,7 +32,6 @@ import {
   timestampToStr,
 } from '../../src/fifo/protocol.ts';
 import { FifoRecorder } from '../../src/fifo/recorder.ts';
-import { legacyPressureToNewton } from '../../src/protocol/pressure-calibration.ts';
 import type { PressureCalibration } from '../../src/protocol/pressure-calibration.ts';
 import type { FifoRequestRange } from '../../src/fifo/protocol.ts';
 
@@ -197,8 +199,117 @@ function makeCoreFifoPacket(serial: number, time: { h: number; m: number; s: num
 }
 
 test('fifoLayoutFor: INSOLE は 24B × 4 サンプル（圧力あり）、CORE は 12B × 8 サンプル（圧力なし）', () => {
-  assert.deepEqual(fifoLayoutFor('insole'), { samples: 4, sampleSize: 24, hasPressure: true });
-  assert.deepEqual(fifoLayoutFor('core'), { samples: 8, sampleSize: 12, hasPressure: false });
+  assert.deepEqual(fifoLayoutFor('insole'), { samples: 4, sampleSize: 24, hasPressure: true, header: 0x36, byteLength: 104, ringCapacity: 1500 });
+  assert.deepEqual(fifoLayoutFor('core'), { samples: 8, sampleSize: 12, hasPressure: false, header: 0x36, byteLength: 104, ringCapacity: 1500 });
+});
+
+// ── INSOLE 8 フレーム形式（FW 20260924.1 以降。0x3A・200 byte） ─────────
+
+/**
+ * INSOLE の 200 バイトの FIFO データパケット（24B × 8 サンプル）。フレーム i（バイト順で i 番目）は
+ * gyro = (1000(i+1), -100, 0) LSB、acc = (2048(i+1), -2048, 0) LSB、press = pressRaw の各値 + i。
+ */
+function makeFifoPacket8(
+  serial: number,
+  time: { h: number; m: number; s: number; ms: number },
+  pressRaw: number[] = [0, 0, 0, 0, 0, 0]
+): DataView {
+  const bytes = [0x3a, (serial >> 8) & 0xff, serial & 0xff, time.h, time.m, time.s, (time.ms >> 8) & 0xff, time.ms & 0xff];
+  for (let i = 0; i < 8; i++) {
+    for (const value of [1000 * (i + 1), -100, 0, 2048 * (i + 1), -2048, 0]) {
+      bytes.push((value >> 8) & 0xff, value & 0xff);
+    }
+    for (const value of pressRaw) bytes.push(((value + i) >> 8) & 0xff, (value + i) & 0xff);
+  }
+  return view(bytes);
+}
+
+test('fifoPacketLayout: ヘッダと長さの両方が合う形式だけを返す', () => {
+  const time = { h: 0, m: 0, s: 0, ms: 0 };
+  const four = makeFifoPacket(1, time);
+  const eight = makeFifoPacket8(1, time);
+  assert.equal(four.byteLength, 104);
+  assert.equal(eight.byteLength, 200);
+  assert.equal(fifoPacketLayout(four), fifoLayoutFor('insole'));
+  assert.equal(fifoPacketLayout(eight), INSOLE_FIFO_LAYOUT_8);
+  assert.deepEqual(INSOLE_FIFO_LAYOUT_8, { samples: 8, sampleSize: 24, hasPressure: true, header: 0x3a, byteLength: 200, ringCapacity: 750 });
+  assert.equal(fifoPacketLayout(makeCoreFifoPacket(1, time), 'core'), fifoLayoutFor('core'));
+
+  // ヘッダだけ合って長さが違うものは読まない（範囲外参照になる）
+  const bytes200 = new Uint8Array(200);
+  bytes200[0] = 0x36;
+  assert.equal(fifoPacketLayout(new DataView(bytes200.buffer)), null);
+  const bytes104 = new Uint8Array(104);
+  bytes104[0] = 0x3a;
+  assert.equal(fifoPacketLayout(new DataView(bytes104.buffer)), null);
+  // 8 フレーム形式は INSOLE のみ。CORE では未対応として扱う
+  assert.equal(fifoPacketLayout(eight, 'core'), null);
+  // ステータス応答（新 FW は 200 byte に pad されて届く）・短すぎるもの・null
+  const status = new Uint8Array(200);
+  status[0] = 0x35;
+  assert.equal(fifoPacketLayout(new DataView(status.buffer)), null);
+  assert.equal(fifoPacketLayout(view([0x3a, 0, 1])), null);
+  assert.equal(fifoPacketLayout(null), null);
+});
+
+test('extractSerialIfSensorPacket: 8 フレーム形式（0x3A）のシリアルも返す', () => {
+  assert.equal(extractSerialIfSensorPacket(makeFifoPacket8(0xabcd, { h: 0, m: 0, s: 0, ms: 0 })), 0xabcd);
+});
+
+test('decodeFifoPacket: INSOLE 8 フレーム形式は 8 サンプルを古い順に並べる', () => {
+  const packet = decodeFifoPacket(makeFifoPacket8(10, { h: 1, m: 2, s: 3, ms: 456 }, [0, 1000, 2000, 3000, 4000, 5000]));
+  assert.equal(packet.serial, 10);
+  assert.equal(packet.timestamp, 3723456);
+  assert.equal(packet.samples.length, 8);
+
+  packet.samples.forEach((sample, k) => {
+    const frame = 7 - k; // 先頭サンプルはバイト列の 8 番目のフレーム
+    assert.equal(sample.serial_number, 10);
+    assert.equal(sample.packet_number, k);
+    assert.equal(sample.t, 3723456 + k * FIFO_FRAME_INTERVAL_MS);
+    assertClose(sample.converted_gyro.x, 70 * (frame + 1));
+    assertClose(sample.converted_gyro.y, -7);
+    assert.deepEqual(sample.converted_acc, { x: frame + 1, y: -1, z: 0 });
+    assert.deepEqual(sample.press, {
+      values: [0, 1000, 2000, 3000, 4000, 5000].map((v) => v + frame),
+      serial_number: 10,
+      packet_number: k,
+    });
+  });
+});
+
+test('CSV: INSOLE 8 フレーム形式は 1 パケット 8 行で、4 フレーム形式と混在しても読める', () => {
+  const eight = makeFifoPacket8(65535, { h: 0, m: 0, s: 0, ms: 980 });
+  const rows = packetToCsvRows(eight);
+  assert.equal(rows.length, 8);
+  assert.deepEqual(rows.map((row) => row.split(', ').slice(0, 2).join(' ')), [
+    '65535 00:00:00:980', '65535 00:00:00:985', '65535 00:00:00:990', '65535 00:00:00:995',
+    '65535 00:00:01:000', '65535 00:00:01:005', '65535 00:00:01:010', '65535 00:00:01:015',
+  ]);
+  assert.equal(rows[0]!.split(', ').length, FIFO_CSV_HEADER.split(',').length);
+
+  const store = new Map<number, DataView>([
+    [65535, eight],
+    [0, makeFifoPacket8(0, { h: 0, m: 0, s: 1, ms: 20 })],
+  ]);
+  const lines = rawStoreToCSV(store).trimEnd().split('\n');
+  assert.equal(lines[0], FIFO_CSV_HEADER);
+  assert.equal(lines.length, 1 + 16);
+  assert.equal(lines[9]!.split(', ')[0], '0'); // 巻き戻り後の serial 0 は timestamp 順で後ろ
+});
+
+test('FifoLoopState: 8 フレーム形式を受け取ると ring_overflow の上限が 750 packet になる', () => {
+  const state = new FifoLoopState();
+  assert.equal(state.ringCapacity, 1500);
+  assert.equal(state.framesPerPacket, null);
+  state.notePacketLayout(INSOLE_FIFO_LAYOUT_8);
+  assert.equal(state.ringCapacity, 750);
+  assert.equal(state.framesPerPacket, 8);
+
+  state.lastSerial = 0;
+  assert.deepEqual(state.calcRequestRange(800, 780, 200), [51, 200]);
+  assert.equal(state.dropped, 50);
+  assert.deepEqual(state.lossEvents, [{ reason: 'ring_overflow', dropped: 50 }]);
 });
 
 test('decodeFifoPacket: CORE は 8 フレームを古い順に並べ、圧力は null', () => {
@@ -257,7 +368,7 @@ test('rawStoreToCSV: CORE は圧力の列がないヘッダで 8 行ずつ', () 
   assert.equal(lines[1]!.split(', ').length, 8);
 });
 
-test('packetToCsvRows: 1 パケット 4 行。timestamp は 5ms 刻み、圧力は固定式で N', () => {
+test('packetToCsvRows: 1 パケット 4 行。timestamp は 5ms 刻み、圧力は既定係数で N', () => {
   const rows = packetToCsvRows(makeFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }));
   assert.deepEqual(rows, [
     '10, 01:02:03:456,   280.00,    -7.00,     0.00,   4.0000,  -1.0000,   0.0000,  22.5012,   6.9793,  31.8015,   3.1081,   3.7148,   0.0000',
@@ -285,7 +396,7 @@ test('rawStoreToCSV: ヘッダ + 時刻順の行。データパケット以外�
   ]);
 });
 
-test('CSV: 個体別校正係数を渡すと、その ch は係数で、null の ch は旧式で N に換算する', () => {
+test('CSV: 個体別校正係数を渡すと、その ch は係数で、null の ch は既定係数で N に換算する', () => {
   const pressRaw = [100, 200, 300, 400, 500, 600];
   const dv = makeFifoPacket(10, { h: 1, m: 2, s: 3, ms: 456 }, pressRaw);
   const calibrations: (PressureCalibration | null)[] = [
@@ -301,7 +412,7 @@ test('CSV: 個体別校正係数を渡すと、その ch は係数で、null の
     assert.deepEqual(cells.slice(0, 8), plain[i]!.split(', ').slice(0, 8)); // serial / timestamp / gyro / acc は同じ
     assert.equal(Number(cells[8]), 100);
     assert.equal(Number(cells[9]), 400);
-    assert.equal(Number(cells[10]), Number(legacyPressureToNewton(300).toFixed(4)));
+    assert.equal(Number(cells[10]), Number(pressureToN(300, 3).toFixed(4)));
   }
   const store = new Map<number, DataView>([[10, dv]]);
   assert.equal(rawStoreToCSV(store, calibrations).split('\n')[1], rows[0]);
@@ -322,6 +433,52 @@ test('calcRequestRange: 未同期なら直近 accumulated 件、同期後は las
 
   assert.deepEqual(new FifoLoopState().calcRequestRange(42, 0, 200), [0, 0]);
   assert.equal(state.dropped, 0);
+});
+
+test('calcRequestRange: 蓄積数を返さない FW（常に 0）でも、シリアルが進んでいれば現在のシリアルから始める', () => {
+  const state = new FifoLoopState();
+  // 1 回目: 蓄積数 0。まだ「溜まっていないだけ」と区別できないので要求しない
+  assert.deepEqual(state.calcRequestRange(54, 0, 200), [0, 0]);
+  assert.equal(state.noAccumulatedCount, false);
+  // 2 回目: 蓄積数は 0 のままシリアルだけ進んだ → 蓄積数を返さない FW。現在の 1 件から始める
+  assert.deepEqual(state.calcRequestRange(60, 0, 200), [60, 1]);
+  assert.equal(state.noAccumulatedCount, true);
+  assert.equal(state.updateAfterResponse(new Set(), new Set(), 60, 1), 'ok');
+  assert.equal(state.lastSerial, 60);
+  // 同期後は通常どおり lastSerial の次から
+  assert.deepEqual(state.calcRequestRange(70, 0, 200), [61, 10]);
+  assert.equal(state.dropped, 0);
+});
+
+test('calcRequestRange: 蓄積数を返す FW の「まだ溜まっていない」（シリアルが進まない）では要求しない', () => {
+  const state = new FifoLoopState();
+  assert.deepEqual(state.calcRequestRange(0, 0, 200), [0, 0]);
+  assert.deepEqual(state.calcRequestRange(0, 0, 200), [0, 0]);
+  assert.equal(state.noAccumulatedCount, false);
+  // 蓄積数を一度でも見たら、以後の 0 は「溜まっていない」として扱う
+  assert.deepEqual(state.calcRequestRange(5, 5, 200), [1, 5]);
+  const next = new FifoLoopState();
+  assert.deepEqual(next.calcRequestRange(5, 5, 200), [1, 5]);
+  next.lastSerial = null;
+  assert.deepEqual(next.calcRequestRange(9, 0, 200), [0, 0]);
+  assert.equal(next.noAccumulatedCount, false);
+});
+
+test('calcRequestRange: 蓄積数を返さない FW の再同期は、最後に要求済みのシリアルからの距離を欠損として数える', () => {
+  const state = new FifoLoopState();
+  state.calcRequestRange(10, 0, 200);
+  assert.deepEqual(state.calcRequestRange(12, 0, 200), [12, 1]);
+  state.updateAfterResponse(new Set(), new Set(), 12, 1);
+  assert.deepEqual(state.calcRequestRange(20, 0, 200), [13, 8]);
+  state.updateAfterResponse(new Set(), new Set(), 13, 8);   // lastSerial = 20
+  // 新規レンジに no-data → 再同期
+  state.calcRequestRange(30, 0, 200);
+  state.updateAfterResponse(new Set(), new Set([21]), 21, 10);
+  assert.equal(state.lastSerial, null);
+  assert.deepEqual(state.calcRequestRange(65530, 0, 200), [65530, 1]);
+  // 30 まで要求済みで、65530 から再開 → 31..65529 の 65499 件が失われた
+  assert.equal(state.dropped, 65499);
+  assert.deepEqual(state.lossEvents, [{ reason: 'resync_backlog', dropped: 65499 }]);
 });
 
 test('calcRequestRange: リングバッファ容量を超えて遅れた分は ring_overflow として計上する', () => {
@@ -346,18 +503,20 @@ test('updateAfterResponse: BLE で落ちたシリアルは carryOver へ、lastS
 test('updateAfterResponse: carryOver が上限を超えたら諦めて再同期し、次の要求でバックログを計上する', () => {
   const state = new FifoLoopState();
   state.lastSerial = 0;
-  const lost = new Set(Array.from({ length: 101 }, (_, i) => i + 1));
-  assert.equal(state.updateAfterResponse(lost, new Set(), 1, 150), 'resync');
-  assert.equal(state.dropped, 101);
+  const over = FIFO_MAX_CARRY_OVER_SERIALS + 1;
+  assert.equal(over, 601);
+  const lost = new Set(Array.from({ length: over }, (_, i) => i + 1));
+  assert.equal(state.updateAfterResponse(lost, new Set(), 1, 650), 'resync');
+  assert.equal(state.dropped, over);
   assert.equal(state.lastSerial, null);
   assert.equal(state.resyncPending, true);
   assert.deepEqual(state.carryOver, []);
 
   // 再同期: 直近 200 件だけ要求し、残り 100 件は resync_backlog
   assert.deepEqual(state.calcRequestRange(500, 300, 200), [301, 200]);
-  assert.equal(state.dropped, 201);
+  assert.equal(state.dropped, over + 100);
   assert.deepEqual(state.lossEvents, [
-    { reason: 'carryover_overflow', dropped: 101 },
+    { reason: 'carryover_overflow', dropped: over },
     { reason: 'resync_backlog', dropped: 100 },
   ]);
   assert.equal(state.resyncPending, false);

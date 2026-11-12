@@ -66,7 +66,7 @@ export function decodePressureCalibration(
 
 /**
  * FW に校正値が書かれていないときに返るプレースホルダかどうか。
- * `func = 0` かつ係数が全部 `1.0` のときは個体別係数として扱わず、旧式へ戻す。
+ * `func = 0` かつ係数が全部 `1.0` のときは個体別係数として扱わず、既定係数で換算する。
  */
 export function isPressureCalibrationPlaceholder(calibration: PressureCalibration): boolean {
   return (
@@ -77,33 +77,61 @@ export function isPressureCalibrationPlaceholder(calibration: PressureCalibratio
 }
 
 /**
+ * 校正係数の式をそのまま評価する（クランプなし）。
+ * 係数不足・未知の func は NaN
+ */
+function evaluatePressureCalibration(calibration: PressureCalibration, adcRaw: number): number {
+  const c = calibration.coefficients;
+  switch (calibration.func) {
+    case 0:
+      if (c.length < 3) return NaN;
+      return c[0]! * Math.exp(c[1]! * adcRaw) + c[2]!;
+    case 1: {
+      if (c.length < 5) return NaN;
+      const x2 = adcRaw * adcRaw;
+      const x3 = x2 * adcRaw;
+      const x4 = x3 * adcRaw;
+      return c[0]! * x4 + c[1]! * x3 + c[2]! * x2 + c[3]! * adcRaw + c[4]!;
+    }
+    default:
+      return NaN;
+  }
+}
+
+/**
  * 校正係数で ADC 生値を圧力 [N] に換算する。
  * 負・NaN・無限大・未知の func は 0。
  */
 export function applyPressureCalibration(calibration: PressureCalibration, adcRaw: number): number {
-  const c = calibration.coefficients;
-  let y: number;
-  switch (calibration.func) {
-    case 0:
-      if (c.length < 3) return 0;
-      y = c[0]! * Math.exp(c[1]! * adcRaw) + c[2]!;
-      break;
-    case 1: {
-      if (c.length < 5) return 0;
-      const x2 = adcRaw * adcRaw;
-      const x3 = x2 * adcRaw;
-      const x4 = x3 * adcRaw;
-      y = c[0]! * x4 + c[1]! * x3 + c[2]! * x2 + c[3]! * adcRaw + c[4]!;
-      break;
-    }
-    default:
-      return 0;
-  }
+  const y = evaluatePressureCalibration(calibration, adcRaw);
   if (!Number.isFinite(y) || y < 0) return 0;
   return y;
 }
 
-// 旧 FW 向けの固定式。ADC 生値を mV に直してから指数式に通す
+/**
+ * 個体別係数が無いときに使う既定係数（センサー番号 0..5 の順、各行は `[c1..c5]` の 4 次多項式）。
+ * insole_client（e342620）の `bin_to_float_pressure_n` と ORPHE-INSOLE.js と同じ値
+ */
+export const DEFAULT_PRESSURE_COEFFICIENTS: readonly (readonly number[])[] = [
+  [6.31278e-11, -2.33093e-7, 3.27825e-4, -1.63373e-1, 2.25012e1],
+  [6.65168e-11, -2.10741e-7, 2.31937e-4, -7.10366e-2, 6.97927],
+  [1.07646e-10, -3.85112e-7, 5.02384e-4, -2.37328e-1, 3.18015e1],
+  [5.91156e-11, -1.81045e-7, 1.86644e-4, -4.46178e-2, 3.10811],
+  [5.32573e-11, -1.68515e-7, 1.79518e-4, -4.66859e-2, 3.71484],
+  [4.44324e-11, -1.09728e-7, 8.90389e-5, 3.82816e-3, -4.4658],
+];
+
+/**
+ * 既定係数（ch ごとの 4 次多項式）で ADC 生値を圧力 [N] に換算する。
+ * 負・非有限は 0、範囲外のセンサー番号も 0
+ */
+export function defaultPressureToNewton(adcRaw: number, sensorIndex: number): number {
+  const coefficients = DEFAULT_PRESSURE_COEFFICIENTS[sensorIndex];
+  if (!coefficients) return 0;
+  return applyPressureCalibration({ func: 1, coefficients: [...coefficients] }, adcRaw);
+}
+
+// 旧 FW 向けだった固定式。ADC 生値を mV に直してから指数式に通す
 const LEGACY_C1 = 2.77942;
 const LEGACY_C2 = 2.08348e-3;
 const LEGACY_C3 = 4.14411;
@@ -113,9 +141,10 @@ const ADC_REFERENCE_VOLT = 3.3;
 const ADC_FULL_SCALE = 4096;
 
 /**
- * 個体別係数を持たない FW 向けの換算。
+ * 旧来の固定式。
  * `mV = adc × 3.3 / 4096 × 1000` に直し、240 mV 以下は 0、
  * それ以上は `c1·exp(c2·mV) + c3`。
+ * @deprecated SDK 内では使っていない。既定の換算は {@link defaultPressureToNewton}
  */
 export function legacyPressureToNewton(adcRaw: number): number {
   const mV = (adcRaw * ADC_REFERENCE_VOLT / ADC_FULL_SCALE) * 1000;
@@ -126,11 +155,17 @@ export function legacyPressureToNewton(adcRaw: number): number {
 
 /**
  * ADC 生値を圧力 [N] に換算する。
- * 係数があればそれを使い、null やプレースホルダなら旧式へフォールバックする。
+ * 個体別係数があればそれを使う。null・プレースホルダ・換算結果が非有限のときは
+ * センサー番号 `sensorIndex` の既定係数（{@link defaultPressureToNewton}）を使う。負値は 0
  */
-export function pressureToNewton(adcRaw: number, calibration: PressureCalibration | null | undefined): number {
+export function pressureToNewton(
+  adcRaw: number,
+  calibration: PressureCalibration | null | undefined,
+  sensorIndex: number
+): number {
   if (calibration && !isPressureCalibrationPlaceholder(calibration)) {
-    return applyPressureCalibration(calibration, adcRaw);
+    const y = evaluatePressureCalibration(calibration, adcRaw);
+    if (Number.isFinite(y)) return y < 0 ? 0 : y;
   }
-  return legacyPressureToNewton(adcRaw);
+  return defaultPressureToNewton(adcRaw, sensorIndex);
 }
