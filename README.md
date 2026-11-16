@@ -69,7 +69,20 @@ npm run build:browser   # dist/browser/ に <script> 用のファイルを出力
 
 `main` に push すると、`package.json` の version に対応するタグ（`v<version>`）が無ければ
 GitHub Actions（`.github/workflows/release.yml`）が `dist/browser` をビルドしてタグを作ります。
-jsDelivr はそのタグから配信します。版を上げるときは `npm version patch` で version を更新して `main` に反映します。
+jsDelivr はそのタグから配信します。
+
+新しい版を配信し、サンプル集まで反映する流れは次のとおりです。
+
+1. 作業ブランチで `npm version patch`（機能追加は `minor`）を実行し、`develop` への PR をマージします。
+2. `develop` → `main` の PR をマージすると、`release.yml` がチェック・ビルドを通してタグ `v<version>` を作り、jsDelivr から配信されます。
+3. [ORPHE-CORE-INSOLE.js-EXAMPLE](https://github.com/Orphe-OSS/ORPHE-CORE-INSOLE.js-EXAMPLE) の `sdk-bump.yml`（毎日 9:00 JST）が新しいタグを検知し、
+   example の CDN 参照を上げる PR を EXAMPLE の `develop` に作ります。すぐ反映したいときは手動で実行します。
+
+   ```bash
+   gh workflow run sdk-bump.yml -R Orphe-OSS/ORPHE-CORE-INSOLE.js-EXAMPLE
+   ```
+
+4. EXAMPLE の PR で主要な example を実機で確認してマージし、EXAMPLE の `develop` → `main` をマージすると GitHub Pages に公開されます。
 
 ## 開発
 
