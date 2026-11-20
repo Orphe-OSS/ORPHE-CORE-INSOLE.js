@@ -203,7 +203,7 @@ export function gyroToDps(msb: number, lsb: number, range: number = FIFO_DEFAULT
   return gyroRawToDps(binToInt(msb, lsb), range);
 }
 
-/** 圧力生値(ADC uint16) → N（既定係数の ch ごとの多項式。n は 1..6、範囲外は 0） */
+/** 圧力生値(ADC uint16) → N（全 ch 共通の既定式。n は 1..6、範囲外は 0） */
 export function pressureToN(x: number, n: number): number {
   return defaultPressureToNewton(x, n - 1);
 }

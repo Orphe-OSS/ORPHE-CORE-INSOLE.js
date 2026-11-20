@@ -109,8 +109,23 @@ export function applyPressureCalibration(calibration: PressureCalibration, adcRa
 }
 
 /**
- * 個体別係数が無いときに使う既定係数（センサー番号 0..5 の順、各行は `[c1..c5]` の 4 次多項式）。
- * insole_client（e342620）の `bin_to_float_pressure_n` と ORPHE-INSOLE.js と同じ値
+ * 個体別係数が無いときに使う既定式（全 ch 共通）。
+ * orphe_insole_demo_app（`OrpheBluetooth.getPressure`）と同じで、ADC 生値 x をそのまま
+ * `y = 2.77942·exp(0.00235·x) + 4.14411` に通す（mV には直さない）。
+ * x が {@link DEFAULT_PRESSURE_THRESHOLD_RAW} 以下なら 0。
+ */
+export const DEFAULT_PRESSURE_CALIBRATION: Readonly<{ func: 0; coefficients: readonly number[] }> = Object.freeze({
+  func: 0,
+  coefficients: Object.freeze([2.77942, 0.00235, 4.14411, 0, 0]),
+});
+
+/** 既定式のノイズフロア（ADC 生値）。これ以下は「踏んでいない」として 0 にする */
+export const DEFAULT_PRESSURE_THRESHOLD_RAW = 240;
+
+/**
+ * ch ごとの 4 次多項式の係数（センサー番号 0..5 の順、各行は `[c1..c5]`）。
+ * insole_client（e342620）の `bin_to_float_pressure_n` と ORPHE-INSOLE.js と同じ値。
+ * @deprecated SDK 内では使っていない（v0.3.0 までの既定係数）。既定の換算は {@link defaultPressureToNewton}
  */
 export const DEFAULT_PRESSURE_COEFFICIENTS: readonly (readonly number[])[] = [
   [6.31278e-11, -2.33093e-7, 3.27825e-4, -1.63373e-1, 2.25012e1],
@@ -122,16 +137,19 @@ export const DEFAULT_PRESSURE_COEFFICIENTS: readonly (readonly number[])[] = [
 ];
 
 /**
- * 既定係数（ch ごとの 4 次多項式）で ADC 生値を圧力 [N] に換算する。
- * 負・非有限は 0、範囲外のセンサー番号も 0
+ * 既定式（{@link DEFAULT_PRESSURE_CALIBRATION}。全 ch 共通の指数関数）で ADC 生値を圧力 [N] に換算する。
+ * {@link DEFAULT_PRESSURE_THRESHOLD_RAW} 以下・負・非有限は 0、範囲外のセンサー番号も 0
  */
 export function defaultPressureToNewton(adcRaw: number, sensorIndex: number): number {
-  const coefficients = DEFAULT_PRESSURE_COEFFICIENTS[sensorIndex];
-  if (!coefficients) return 0;
-  return applyPressureCalibration({ func: 1, coefficients: [...coefficients] }, adcRaw);
+  if (!Number.isInteger(sensorIndex) || sensorIndex < 0 || sensorIndex >= PRESSURE_SENSOR_COUNT) return 0;
+  if (!(adcRaw > DEFAULT_PRESSURE_THRESHOLD_RAW)) return 0;
+  return applyPressureCalibration(
+    { func: DEFAULT_PRESSURE_CALIBRATION.func, coefficients: [...DEFAULT_PRESSURE_CALIBRATION.coefficients] },
+    adcRaw
+  );
 }
 
-// 旧 FW 向けだった固定式。ADC 生値を mV に直してから指数式に通す
+// 旧 FW 向けだった固定式。ADC 生値を mV に直してから指数式に通す（既定式とは c2 と入力の単位が違う）
 const LEGACY_C1 = 2.77942;
 const LEGACY_C2 = 2.08348e-3;
 const LEGACY_C3 = 4.14411;
@@ -156,7 +174,7 @@ export function legacyPressureToNewton(adcRaw: number): number {
 /**
  * ADC 生値を圧力 [N] に換算する。
  * 個体別係数があればそれを使う。null・プレースホルダ・換算結果が非有限のときは
- * センサー番号 `sensorIndex` の既定係数（{@link defaultPressureToNewton}）を使う。負値は 0
+ * 既定式（{@link defaultPressureToNewton}）を使う。負値は 0
  */
 export function pressureToNewton(
   adcRaw: number,
