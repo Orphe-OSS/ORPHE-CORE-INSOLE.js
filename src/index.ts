@@ -95,7 +95,9 @@ export {
   insoleStreamingModeOf,
 } from './modes/insole.ts';
 export {
+  DEFAULT_PRESSURE_CALIBRATION,
   DEFAULT_PRESSURE_COEFFICIENTS,
+  DEFAULT_PRESSURE_THRESHOLD_RAW,
   applyPressureCalibration,
   defaultPressureToNewton,
   legacyPressureToNewton,

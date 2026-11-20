@@ -46,7 +46,7 @@
     </table>
     <div class="hint">
       func 0: <code>c1·exp(c2·x) + c3</code>（c4・c5 は未使用） ／ func 1: <code>c1·x⁴ + c2·x³ + c3·x² + c4·x + c5</code>。
-      x は ADC 生値、負の結果は 0 N。個体別係数が無い ch は既定係数（ch ごとの 4 次多項式）で換算する。
+      x は ADC 生値、負の結果は 0 N。個体別係数が無い ch は既定式（全 ch 共通の y = 2.77942·exp(0.00235·x) + 4.14411。x ≤ 240 は 0）で換算する。
     </div>
 
     <div class="log" data-log></div>
