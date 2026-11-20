@@ -7,7 +7,8 @@
  *
  * 係数は profile.pressure_calibrations にセンサー番号順で入る（欠けた ch は null）。
  */
-import { DEFAULT_PRESSURE_COEFFICIENTS, OrpheCoreInsole, insoleProfile } from '../src/index.ts';
+import { DEFAULT_PRESSURE_CALIBRATION, OrpheCoreInsole, insoleProfile } from '../src/index.ts';
+import { PRESSURE_SENSOR_COUNT } from '../src/protocol/pressure-calibration.ts';
 import type { InsolePress, PressureCalibration } from '../src/index.ts';
 
 /** 荷重は rAF ごとにまとめて描く。バーは 0..BAR_MAX_N を 0..100% にする */
@@ -110,10 +111,10 @@ function renderCalibration(calibrations: (PressureCalibration | null)[] | null):
   if (calibrations === renderedCalibration) return;
   renderedCalibration = calibrations;
   calibrationBody.replaceChildren();
-  DEFAULT_PRESSURE_COEFFICIENTS.forEach((defaults, ch) => {
+  for (let ch = 0; ch < PRESSURE_SENSOR_COUNT; ch++) {
     const calibration = calibrations?.[ch] ?? null;
-    const coefficients = calibration ? calibration.coefficients : defaults;
-    const func = calibration ? calibration.func : 1;
+    // 係数が無い ch は全 ch 共通の既定式（ADC ≤ 240 は 0）で換算される
+    const { func, coefficients } = calibration ?? DEFAULT_PRESSURE_CALIBRATION;
     const cells = [
       `ch${ch}`,
       calibration ? '個体別係数' : '既定係数',
@@ -128,7 +129,7 @@ function renderCalibration(calibrations: (PressureCalibration | null)[] | null):
       row.appendChild(cell);
     });
     calibrationBody.appendChild(row);
-  });
+  }
 }
 
 function render(): void {

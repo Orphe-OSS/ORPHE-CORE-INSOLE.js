@@ -185,7 +185,7 @@ INSOLEのリアルタイムセンサー配信は次の仕様です。歩容解�
 
 `press` は ADC 生値、`converted_press` は荷重 [N] です。FW が 20260428 以降なら、`begin()` の中で 6ch ぶんの個体別校正係数を取得し、`ble.profile.pressure_calibrations` にセンサー番号順で保持します。取得は `begin()` の完了までに終わります。
 
-- 係数が使えない場合は、既定係数（ch ごとの 4 次多項式）で換算します。ORPHE-INSOLE.js と insole_client（e342620）と同じ値です。次の場合が該当します。
+- 係数が使えない場合は、既定式で換算します。orphe_insole_demo_app と同じ全 ch 共通の指数関数 `2.77942·exp(0.00235·x) + 4.14411` で、x（ADC 生値）が 240 以下なら 0 にします。次の場合が該当します。
   - FW が古い、または不明
   - `insoleProfile({ pressureCalibration: { fetch: false } })` で取得を無効にした
   - 応答がない
@@ -198,7 +198,8 @@ INSOLEのリアルタイムセンサー配信は次の仕様です。歩容解�
   - 全 ch が揃うまで、前の値を使い続けます。
   - mode 1 で計測中なら、取得の間だけ mode 4 にしてから元に戻します。
 - FIFO の CSV も、同じ係数と既定係数で N に換算します。
-- 換算式は `pressureToNewton(raw, calibration, sensorIndex)` / `defaultPressureToNewton(raw, sensorIndex)` / `DEFAULT_PRESSURE_COEFFICIENTS` として export しています。
+- 換算式は `pressureToNewton(raw, calibration, sensorIndex)` / `defaultPressureToNewton(raw, sensorIndex)`、既定式の係数と閾値は `DEFAULT_PRESSURE_CALIBRATION` / `DEFAULT_PRESSURE_THRESHOLD_RAW` として export しています。
+- v0.3.0 までの既定係数（ch ごとの 4 次多項式。ORPHE-INSOLE.js・insole_client e342620 と同じ値）は、v0.4.0 で既定から外しました。`DEFAULT_PRESSURE_COEFFICIENTS`（deprecated）として残しています。
 
 ```ts
 ble.on('converted_press', (press) => console.log(press.values));        // [N] × 6ch

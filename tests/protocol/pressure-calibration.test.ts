@@ -1,12 +1,14 @@
 /**
  * 個体別圧力校正係数（protocol/pressure-calibration.ts）。
  * - 取得要求 / 0x39 応答の codec
- * - func 別の換算式と、既定係数（ch ごとの 4 次多項式）へのフォールバック
+ * - func 別の換算式と、既定式（orphe_insole_demo_app と同じ全 ch 共通の指数関数）へのフォールバック
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  DEFAULT_PRESSURE_CALIBRATION,
   DEFAULT_PRESSURE_COEFFICIENTS,
+  DEFAULT_PRESSURE_THRESHOLD_RAW,
   PRESSURE_CALIBRATION_PAYLOAD_LENGTH,
   PRESSURE_SENSOR_COUNT,
   applyPressureCalibration,
@@ -86,25 +88,36 @@ test('legacyPressureToNewton: ADC → mV を挟んだ指数式で、240 mV 以�
   assert.ok(Math.abs(legacyPressureToNewton(1000) - expected) < 1e-9);
 });
 
-test('defaultPressureToNewton: insole_client e342620 / ORPHE-INSOLE.js と同じ ch ごとの多項式', () => {
-  assert.equal(DEFAULT_PRESSURE_COEFFICIENTS.length, PRESSURE_SENSOR_COUNT);
-  const expected = [16.988, 23.65547, 19.3915, 23.20491, 21.28924, 23.10566];
+test('defaultPressureToNewton: orphe_insole_demo_app と同じ全 ch 共通の指数関数（生値のまま、240 以下は 0）', () => {
+  assert.equal(DEFAULT_PRESSURE_CALIBRATION.func, 0);
+  assert.deepEqual([...DEFAULT_PRESSURE_CALIBRATION.coefficients], [2.77942, 0.00235, 4.14411, 0, 0]);
+  assert.equal(DEFAULT_PRESSURE_THRESHOLD_RAW, 240);
+  // demo app: y = 2.77942·exp(0.00235·x) + 4.14411（x は ADC 生値）
+  const demo = (x: number): number => 2.77942 * Math.exp(0.00235 * x) + 4.14411;
   for (let ch = 0; ch < PRESSURE_SENSOR_COUNT; ch++) {
-    assert.ok(Math.abs(defaultPressureToNewton(1000, ch) - expected[ch]!) < 1e-9, `ch${ch}`);
+    assert.ok(Math.abs(defaultPressureToNewton(1000, ch) - demo(1000)) < 1e-9, `ch${ch}`);
   }
-  // 定数項がそのまま出る（ch5 は負なので 0）
-  assert.deepEqual([0, 1, 2, 3, 4, 5].map((ch) => defaultPressureToNewton(0, ch)), [22.5012, 6.97927, 31.8015, 3.10811, 3.71484, 0]);
+  assert.ok(Math.abs(defaultPressureToNewton(1000, 0) - 33.287912) < 1e-5);
+  // 閾値の境界: 240 は 0、241 から指数関数
+  assert.equal(defaultPressureToNewton(240, 0), 0);
+  assert.ok(Math.abs(defaultPressureToNewton(241, 0) - demo(241)) < 1e-9);
+  assert.equal(defaultPressureToNewton(0, 0), 0);
+  assert.equal(defaultPressureToNewton(-5, 0), 0);
+  assert.equal(defaultPressureToNewton(Number.NaN, 0), 0);
+  // 範囲外のセンサー番号は 0
   assert.equal(defaultPressureToNewton(1000, 6), 0);
   assert.equal(defaultPressureToNewton(1000, -1), 0);
+  // 旧既定の多項式係数は互換のため残す
+  assert.equal(DEFAULT_PRESSURE_COEFFICIENTS.length, PRESSURE_SENSOR_COUNT);
 });
 
-test('pressureToNewton: 係数があればそれを、null / プレースホルダ / 非有限なら既定係数を使う', () => {
+test('pressureToNewton: 係数があればそれを、null / プレースホルダ / 非有限なら既定式を使う', () => {
   const poly: PressureCalibration = { func: 1, coefficients: [0, 0, 0, 1, 0] }; // y = x
   assert.equal(pressureToNewton(500, poly, 0), 500);
   assert.equal(pressureToNewton(500, null, 2), defaultPressureToNewton(500, 2));
   assert.equal(pressureToNewton(500, undefined, 3), defaultPressureToNewton(500, 3));
   assert.equal(pressureToNewton(500, { func: 0, coefficients: [1, 1, 1, 1, 1] }, 1), defaultPressureToNewton(500, 1));
-  // exp(100·1000) = Infinity・未知 func・係数不足は既定係数へ
+  // exp(100·1000) = Infinity・未知 func・係数不足は既定式へ
   assert.equal(pressureToNewton(1000, { func: 0, coefficients: [1, 100, 0, 0, 0] }, 4), defaultPressureToNewton(1000, 4));
   assert.equal(pressureToNewton(1000, { func: 2, coefficients: [1, 1, 1, 1, 1] }, 4), defaultPressureToNewton(1000, 4));
   assert.equal(pressureToNewton(1000, { func: 1, coefficients: [1, 1] }, 4), defaultPressureToNewton(1000, 4));

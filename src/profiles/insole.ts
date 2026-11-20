@@ -126,7 +126,7 @@ export interface InsoleSensorFields {
   press: InsolePress;
   /**
    * 6ch 圧力 [N]（mode 3/4 のみ）。
-   * 対応 FW なら begin() で取得した個体別係数、それ以外は既定係数（ch ごとの多項式）で換算する。
+   * 対応 FW なら begin() で取得した個体別係数、それ以外は既定式（全 ch 共通の指数関数）で換算する。
    */
   converted_press: InsolePress;
   /** 角速度 [dps]（レンジ別センサー感度で換算） */
@@ -450,7 +450,7 @@ export class InsoleProfile implements DeviceProfile<InsoleSensorFields, InsoleCo
   /**
    * begin() で取得した個体別圧力校正係数（index = センサー番号 0..5）。
    * 旧 FW・未取得は null。FW に値が書かれていない ch はプレースホルダとして null になり、
-   * その ch だけ既定係数（ch ごとの多項式）で換算する。
+   * その ch だけ既定式（全 ch 共通の指数関数）で換算する。
    * 接続中は `ble.commands.fetchPressureCalibrations()` で取り直せる。
    */
   pressure_calibrations: (PressureCalibration | null)[] | null = null;

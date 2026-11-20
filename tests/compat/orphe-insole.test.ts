@@ -411,7 +411,7 @@ test('getPressureCalibration(): 接続中に取り直し、取れなければ nu
   assert.deepEqual(errors, []);
 });
 
-test('converted_press: 校正値が無ければ既定係数（ch ごとの多項式）で換算する', async () => {
+test('converted_press: 校正値が無ければ既定式で換算する', async () => {
   const { insole, bluetooth } = makeInsole();
   const { device, sensor } = mockInsoleDevice(); // FW 不明 = 取得しない
   bluetooth.chooserQueue.push(device);
